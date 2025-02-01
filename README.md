@@ -16,3 +16,11 @@ submodule.
 
 
 Robot code will then be based on both your project's repo and the library repo.
+
+If you have trouble switching branches
+
+git switch -f --recurse-submodules <branch-name>
+
+
+ Not sure if this should be --local or --global?
+git config --local submodule.recurse true
