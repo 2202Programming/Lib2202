@@ -12,8 +12,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.builder.RobotLimits;
-import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
-import frc.lib2202.subsystem.hid.HID_Xbox_Subsystem;
+import frc.lib2202.subsystem.hid.HID_Subsystem;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 /*
   Driver controls the robot using field coordinates.
@@ -21,9 +21,9 @@ import frc.lib2202.subsystem.hid.HID_Xbox_Subsystem;
 */
 public class FieldCentricDrive extends Command {
 
-  final SwerveDrivetrain drivetrain;
+  final DriveTrainInterface drivetrain;
   final SwerveDriveKinematics kinematics;
-  final HID_Xbox_Subsystem dc;
+  final HID_Subsystem dc;
   final RobotLimits limits;
 
   // output to Swerve Drivetrain
@@ -38,7 +38,7 @@ public class FieldCentricDrive extends Command {
   
   public FieldCentricDrive() {
     this.dc = RobotContainer.getSubsystem("DC");       //driverControls
-    this.drivetrain = RobotContainer.getSubsystem(SwerveDrivetrain.class);
+    this.drivetrain = RobotContainer.getSubsystem("drivetrain");
     this.limits = RobotContainer.getRobotSpecs().getRobotLimits();
 
     addRequirements(drivetrain);

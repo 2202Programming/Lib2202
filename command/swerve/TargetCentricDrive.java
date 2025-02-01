@@ -15,11 +15,12 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.Constants;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.builder.RobotLimits;
-import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.util.AprilTag2d;
+import frc.lib2202.subsystem.BaseLimelight;
 import frc.lib2202.subsystem.Limelight;
 import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
-import frc.lib2202.subsystem.hid.HID_Xbox_Subsystem;
+import frc.lib2202.subsystem.hid.HID_Subsystem;
 
 /*
   Driver controls the robot using field coordinates.
@@ -47,16 +48,16 @@ public class TargetCentricDrive extends Command {
   }
 
   private state currentState;
-  final SwerveDrivetrain drivetrain;
+  final DriveTrainInterface drivetrain;
   final SwerveDriveKinematics kinematics;
-  final HID_Xbox_Subsystem dc;
+  final HID_Subsystem dc;
   final RobotLimits limits;
 
   //Alliance 
   final AprilTag2d redTarget;
   final AprilTag2d blueTarget;
 
-  final Limelight limelight;
+  final BaseLimelight limelight;
   
   // Limelight PID
   PIDController blindPid;
@@ -97,11 +98,11 @@ public class TargetCentricDrive extends Command {
     this.blueTarget = blueTarget;
     
     this.dc = RobotContainer.getSubsystem("DC"); // driverControls
-    this.drivetrain = RobotContainer.getSubsystem(SwerveDrivetrain.class);
+    this.drivetrain = RobotContainer.getSubsystem("drivetrain");
     this.limits = RobotContainer.getRobotSpecs().getRobotLimits();
     this.kinematics = drivetrain.getKinematics();
 
-    this.limelight = RobotContainer.getSubsystem(Limelight.class);
+    this.limelight = RobotContainer.getSubsystem("limelight");
     
     addRequirements(drivetrain); // This means we area read-only for everything but drivetrain                               
 

@@ -30,13 +30,12 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.swerve.config.ChassisConfig;
 import frc.lib2202.subsystem.swerve.config.ModuleConfig;
 import frc.lib2202.util.ModMath;
 
-public class SwerveDrivetrain extends SubsystemBase {
+public class SwerveDrivetrain extends DriveTrainInterface {
   static final String canBusName = "rio";
   static final double longWaitSeconds = 1.0; // cancode config wait
 
@@ -217,12 +216,12 @@ public class SwerveDrivetrain extends SubsystemBase {
   }
 
   // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-  public void driveRobotRelative(ChassisSpeeds chassisSpeed) {
+  private void driveRobotRelative(ChassisSpeeds chassisSpeed) {
     drive(kinematics.toSwerveModuleStates(chassisSpeed));
   }
 
   // used for testing
-  public void testDrive(double speed, double angle) {
+  private void testDrive(double speed, double angle) {
     // output the angle and speed (meters per sec) for each module
     for (int i = 0; i < modules.length; i++) {
       modules[i].setDesiredState(new SwerveModuleState(speed, new Rotation2d(Math.toRadians(angle))));

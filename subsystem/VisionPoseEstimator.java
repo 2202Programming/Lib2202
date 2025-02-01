@@ -17,8 +17,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.command.WatcherCmd;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.subsystem.swerve.IHeadingProvider;
-import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
 import frc.lib2202.util.VisionWatchdog;
 
 // Swerve Drive Train (SDT) must be created before Swerve-PoseEstimator
@@ -31,7 +31,7 @@ public class VisionPoseEstimator extends SubsystemBase {
     // This connects us to whatever gyro is being used for robot heading, configured
     // in RobotSpecs
     final IHeadingProvider sensors;
-    final SwerveDrivetrain sdt; // must be lib2022 version
+    final DriveTrainInterface sdt; // must be lib2022 version
     final SwerveDriveOdometry m_odometry; // read-only here, updated in sdt
     final SwerveDriveKinematics kinematics; // const matrix based on chassis geometry, get from SDT
     SwerveModulePosition[] meas_pos; // provided by sdt
@@ -41,7 +41,7 @@ public class VisionPoseEstimator extends SubsystemBase {
 
     final VisionWatchdog watchdog;
     final double kTimeoffset; // typical ~= .1; // [s] measurement delay from photonvis
-    final Limelight limelight;
+    final BaseLimelight limelight;
 
     // Bearing calcs (TBD)
     // private double currentBearing = 0;
@@ -82,9 +82,9 @@ public class VisionPoseEstimator extends SubsystemBase {
         m_field = new Field2d();
 
         // other subsystems
-        sdt = RobotContainer.getSubsystemOrNull(SwerveDrivetrain.class);
+        sdt = RobotContainer.getSubsystemOrNull("drivetrain");
         sensors = RobotContainer.getRobotSpecs().getHeadingProvider();
-        limelight = RobotContainer.getSubsystemOrNull(Limelight.class);
+        limelight = RobotContainer.getSubsystemOrNull("limelight");
 
         // confirm config is correct
         correct_config = sdt != null && sensors != null && (limelight != null);
