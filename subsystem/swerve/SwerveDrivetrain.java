@@ -132,9 +132,9 @@ public class SwerveDrivetrain extends SubsystemBase {
       // canCoders[i].getPosition(), canCoders[i].getVelocity());
     }
 
-    m_odometry = new SwerveDriveOdometry(kinematics, sensors.getRotation2d(), meas_pos);
+    m_odometry = new SwerveDriveOdometry(kinematics, sensors.getRotation2d(), meas_pos); //default pose is 0,0,0
     meas_states = kinematics.toSwerveModuleStates(new ChassisSpeeds(0, 0, 0));
-    m_pose = m_odometry.update(sensors.getRotation2d(), meas_pos);
+    m_pose = m_odometry.getPoseMeters();   //update(sensors.getRotation2d(), meas_pos);
 
     configureAutoBuilder();
     offsetDebug();
@@ -298,6 +298,20 @@ public class SwerveDrivetrain extends SubsystemBase {
   @Override
   public void simulationPeriodic() {
     // WIP
+  }
+
+  //set all module positions to given position [m].
+  // Used mostly for debugging pathing and other testing.
+  // Note, odometry tracks wheel positions internally
+  // so any position reset, should be used in conjuection 
+  // with odometry.resetPosition() call.
+  public void setPositions(double position) {
+    for (int i = 0; i < modules.length; i++) {
+      // module state/encoder
+      modules[i].setPosition(position);
+      // our local position copy
+      meas_pos[i].distanceMeters = position;
+    }
   }
 
   public SwerveDriveOdometry getOdometry() {
