@@ -38,13 +38,9 @@ public class RobotCentricDrive extends Command {
   double log_counter = 0;
 
 public RobotCentricDrive() {
-    this.dc = RobotContainer.getSubsystem("DC");       //driverControls
-    this.drivetrain = RobotContainer.getSubsystem("drivetrain");
-    this.limits = RobotContainer.getRobotSpecs().getRobotLimits();
-
-    addRequirements(drivetrain);
-    this.kinematics = drivetrain.getKinematics();
-  }
+    this(RobotContainer.getSubsystem("drivetrain"),
+         RobotContainer.getSubsystem("DC"));
+    }
 
   public RobotCentricDrive(DriveTrainInterface drivetrain, HID_Subsystem dc) {
     this.dc = dc;
