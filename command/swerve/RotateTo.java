@@ -14,11 +14,13 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
+import frc.lib2202.subsystem.OdometryInterface;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.util.AprilTag2d;
 
 public class RotateTo extends Command {
   private final DriveTrainInterface drivetrain;
+  private final OdometryInterface odometry;
   private PIDController pid;
   private final double kp = 0.05;
   private final double ki = 0.0;
@@ -44,6 +46,7 @@ public class RotateTo extends Command {
     this.blueTarget = blueTarget;
 
     drivetrain = RobotContainer.getSubsystem("drivetrain");
+    odometry = RobotContainer.getSubsystem("odometry");
     addRequirements(drivetrain);
     pid = new PIDController(kp, ki, kd);
     pid.enableContinuousInput(-180.0, 180.0);
@@ -58,7 +61,7 @@ public class RotateTo extends Command {
     targetPose = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTarget : redTarget;
    
     timer.restart();
-    currentPose = drivetrain.getPose();
+    currentPose = odometry.getPose();
     targetRot = (Math.atan2(currentPose.getTranslation().getY() - targetPose.location.getY(),
         currentPose.getTranslation().getX() - targetPose.location.getX())) // [-pi, pi]
         * 180 / Math.PI;
@@ -72,7 +75,7 @@ public class RotateTo extends Command {
   }
 
   private void calculate() {
-    currentPose = drivetrain.getPose();
+    currentPose = odometry.getPose();
     outputModuleState = kinematics.toSwerveModuleStates(ChassisSpeeds.fromFieldRelativeSpeeds(
         0,
         0,

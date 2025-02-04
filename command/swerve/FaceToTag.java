@@ -19,9 +19,11 @@ import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.Limelight;
 import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
+import frc.lib2202.subsystem.OdometryInterface;
 
 public class FaceToTag extends Command {
   private final DriveTrainInterface drivetrain;
+  private final OdometryInterface odometry;
   private final Limelight limelight;
   double TimeOut = 1.0;  //giveup if we take too long
 
@@ -81,6 +83,7 @@ public class FaceToTag extends Command {
 
     limelight = RobotContainer.getSubsystem("limelight");
     drivetrain = RobotContainer.getSubsystem("drivetrain");
+    odometry = RobotContainer.getSubsystem("odometry");
 
     addRequirements(drivetrain);
 
@@ -103,7 +106,7 @@ public class FaceToTag extends Command {
     vision_out = kinematics.toSwerveModuleStates(zero_cs);
     timer.restart();
 
-    System.out.println("FaceToTag: initialize, initial heading: " + drivetrain.getPose().getRotation().getDegrees());
+    System.out.println("FaceToTag: initialize, initial heading: " + odometry.getPose().getRotation().getDegrees());
   }
 
   // Called every time the scheduler runs while the command is scheduled.
@@ -145,7 +148,7 @@ public class FaceToTag extends Command {
           0,
           0,
           rot,
-          drivetrain.getPose().getRotation()));
+          odometry.getPose().getRotation()));
     }
   }
 
@@ -157,7 +160,7 @@ public class FaceToTag extends Command {
           0,
           0,
           0,
-          drivetrain.getPose().getRotation())));
+          odometry.getPose().getRotation())));
     timer.stop();
   }
 

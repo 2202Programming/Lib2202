@@ -10,7 +10,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.Constants;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
-import frc.lib2202.subsystem.swerve.DriveTrainInterface;
+
 
 public abstract class BaseLimelight extends SubsystemBase {
 
@@ -235,7 +235,7 @@ public abstract class BaseLimelight extends SubsystemBase {
 
             if (targetTag != null && targetID > 0) {
                 distanceToTargetTag
-                        .setDouble(((DriveTrainInterface)RobotContainer.getSubsystem("drivetrain")).getDistanceToTranslation(targetTag));
+                        .setDouble(((OdometryInterface)RobotContainer.getSubsystem("odometry")).getDistanceToTranslation(targetTag));
             }
         }
     }

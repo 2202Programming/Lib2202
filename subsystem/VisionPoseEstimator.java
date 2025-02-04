@@ -7,7 +7,6 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTable;
@@ -23,8 +22,8 @@ import frc.lib2202.util.VisionWatchdog;
 
 // Swerve Drive Train (SDT) must be created before Swerve-PoseEstimator
 
-public class VisionPoseEstimator extends SubsystemBase {
-
+public class VisionPoseEstimator extends SubsystemBase // TODO implements OdometryInterface or extends Odometry
+{
     // set true if we found everything needed, otherwise this system is disabled
     final boolean correct_config;
 
@@ -32,7 +31,7 @@ public class VisionPoseEstimator extends SubsystemBase {
     // in RobotSpecs
     final IHeadingProvider sensors;
     final DriveTrainInterface sdt; // must be lib2022 version
-    final SwerveDriveOdometry m_odometry; // read-only here, updated in sdt
+    final OdometryInterface m_odometry; // read-only here, updated in sdt
     final SwerveDriveKinematics kinematics; // const matrix based on chassis geometry, get from SDT
     SwerveModulePosition[] meas_pos; // provided by sdt
 
@@ -87,21 +86,21 @@ public class VisionPoseEstimator extends SubsystemBase {
 
         // other subsystems
         sdt = RobotContainer.getSubsystemOrNull("drivetrain");
+        m_odometry = RobotContainer.getSubsystemOrNull("odometry");
         sensors = RobotContainer.getRobotSpecs().getHeadingProvider();
         limelight = RobotContainer.getSubsystemOrNull(limelightName);
 
         // confirm config is correct
-        correct_config = sdt != null && sensors != null && (limelight != null);
+        correct_config = sdt != null && sensors != null && 
+                         limelight != null && m_odometry != null;
 
-        if (sdt != null) {
+        if (sdt != null && m_odometry != null) {
             kinematics = sdt.getKinematics();
-            meas_pos = sdt.getSwerveModulePositions();
-            m_odometry = sdt.getOdometry();
-            m_pose = sdt.getPose();
+            meas_pos = sdt.getSwerveModulePositions();            
+            m_pose = m_odometry.getPose();
         } else {
             // no sdt, set the sdt related final vars
             kinematics = null;
-            m_odometry = null;
             m_pose = new Pose2d();
             meas_pos = new SwerveModulePosition[] {
                     new SwerveModulePosition(), new SwerveModulePosition(),
@@ -119,7 +118,7 @@ public class VisionPoseEstimator extends SubsystemBase {
         if (!correct_config)
             return;
 
-        m_pose = m_odometry.getPoseMeters();
+        m_pose = m_odometry.getPose();
         updateEstimator(); //sets llPose
         
         // apply llPose to robot position subject any constraints like velocity or distance 
@@ -195,8 +194,8 @@ public class VisionPoseEstimator extends SubsystemBase {
 
     //set sdt's pose if it's enabled
     void useEstimate() {
-        visionPoseUsingRotation = sdt.useVisionRotation();
-        visionPoseEnabled = sdt.useVisionPose();
+        visionPoseUsingRotation = m_odometry.useVisionRotation();
+        visionPoseEnabled = m_odometry.useVisionPose();
         
         Rotation2d current_rotation = m_pose.getRotation();
         if (visionPoseEnabled) {
@@ -204,10 +203,10 @@ public class VisionPoseEstimator extends SubsystemBase {
             watchdog.update(llPose, prev_llPose);
             if (visionPoseUsingRotation) {
                 // update robot pose, include vision-based rotation
-                sdt.setPose(llPose);
+                m_odometry.setPose(llPose);
             } else {
                 // update robot translation, do not update rotation
-                sdt.setPose(new Pose2d(llPose.getTranslation(), current_rotation));
+                m_odometry.setPose(new Pose2d(llPose.getTranslation(), current_rotation));
             }         
         }
     }
@@ -247,8 +246,8 @@ public class VisionPoseEstimator extends SubsystemBase {
     public double getDistanceToTranslation(Translation2d targetTranslation) {
         // TODO - should this be sdt or llpose?
         return Math.sqrt(
-                Math.pow(sdt.getPose().getTranslation().getX() - targetTranslation.getX(), 2.0)
-                        + Math.pow(sdt.getPose().getTranslation().getY() - targetTranslation.getY(), 2.0));
+                Math.pow(m_odometry.getPose().getTranslation().getX() - targetTranslation.getX(), 2.0)
+                        + Math.pow(m_odometry.getPose().getTranslation().getY() - targetTranslation.getY(), 2.0));
     }
 
      /**************************************

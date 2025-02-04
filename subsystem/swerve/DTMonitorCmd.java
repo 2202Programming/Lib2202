@@ -4,7 +4,6 @@
 
 package frc.lib2202.subsystem.swerve;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -18,10 +17,7 @@ import frc.lib2202.subsystem.swerve.config.ChassisConfig;
  *  Only watches high level data, for module details see the tables for each of the modules.
  */
 public class DTMonitorCmd extends WatcherCmd {
-  // Table Entries odometry pose
-  NetworkTableEntry currentX;
-  NetworkTableEntry currentY;
-  NetworkTableEntry currentHeading;
+ 
   // chassis velocity
   NetworkTableEntry radiansPerSecond;
   NetworkTableEntry xMetersPerSec;
@@ -50,11 +46,6 @@ public class DTMonitorCmd extends WatcherCmd {
   @Override
   public void ntcreate() {
     NetworkTable MonitorTable = getTable();
-
-    currentX = MonitorTable.getEntry("bot_x");
-    currentY = MonitorTable.getEntry("bot_y");
-    currentHeading = MonitorTable.getEntry("bot_h");
-
     radiansPerSecond = MonitorTable.getEntry("vector w deg_p_sec");
     xMetersPerSec = MonitorTable.getEntry("vector x ");
     yMetersPerSec = MonitorTable.getEntry("vector y ");    
@@ -62,14 +53,6 @@ public class DTMonitorCmd extends WatcherCmd {
 
   @Override
   public void ntupdate() {
-    // DriveTrain.drivePIDF should be handled via SmartDash buildable
-    // read values from swerve drivetrain as needed using accesors
-    Pose2d pose = sdt.getPose();
-    
-    currentX.setDouble(pose.getX());
-    currentY.setDouble(pose.getY());
-    currentHeading.setDouble(pose.getRotation().getDegrees());
-
     // robot coordinates - speeds
     var speeds = sdt.getChassisSpeeds();
     radiansPerSecond.setDouble(speeds.omegaRadiansPerSecond * 57.3);

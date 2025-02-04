@@ -9,10 +9,12 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
+import frc.lib2202.subsystem.OdometryInterface;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 public class TestConstantVelocity extends Command {
     final DriveTrainInterface drivetrain;
+    final OdometryInterface odometry;
     final SwerveDriveKinematics kinematics;
     final SwerveModulePosition[] meas_pos; 
     final double[] initial_positions;
@@ -31,6 +33,7 @@ public class TestConstantVelocity extends Command {
 
     public TestConstantVelocity(double velocity, double time, double heading) {
         drivetrain = RobotContainer.getSubsystem("drivetrain");
+        odometry = RobotContainer.getSubsystem("odometry");
         kinematics = drivetrain.getKinematics();
         meas_pos = drivetrain.getSwerveModulePositions();
         initial_positions = new double[meas_pos.length];
@@ -51,7 +54,7 @@ public class TestConstantVelocity extends Command {
     @Override
     public void initialize() {
         delay_count = 0;
-        drivetrain.setPose(new Pose2d(0.0, 0.0, heading0));
+        odometry.setPose(new Pose2d(0.0, 0.0, heading0));
         var x_vel = velocity * heading0.getCos();
         var y_vel = velocity * heading0.getSin();
         moving = new ChassisSpeeds(x_vel, y_vel, 0.0);

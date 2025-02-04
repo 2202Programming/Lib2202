@@ -10,11 +10,11 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import frc.lib2202.builder.RobotContainer;
-import frc.lib2202.subsystem.swerve.DriveTrainInterface;
+import frc.lib2202.subsystem.OdometryInterface;
 
 public class AllianceAwareGyroReset extends InstantCommand {
   private boolean disableVisionPoseRotation;
-  final private DriveTrainInterface drivetrain;
+  final private OdometryInterface odometry;
 
 
   //resets the robot rotation/gyro, assuming robot is facing AWAY from driver, and will use alliance
@@ -22,7 +22,7 @@ public class AllianceAwareGyroReset extends InstantCommand {
   //Also has option to disable future vision rotation updates (and just rely on gryo going forward)
   public AllianceAwareGyroReset(boolean disableVisionRotation) {
     this.disableVisionPoseRotation = disableVisionRotation;
-    this.drivetrain = RobotContainer.getSubsystem("drivetrain");
+    this.odometry = RobotContainer.getSubsystem("odometry");
   }
 
   public AllianceAwareGyroReset(){
@@ -33,17 +33,17 @@ public class AllianceAwareGyroReset extends InstantCommand {
   @Override
   public void initialize() {
     if (DriverStation.getAlliance().get() == Alliance.Blue){
-      drivetrain.resetAnglePose(Rotation2d.fromDegrees(0)); //away from blue driverstation is 0 degrees
+      odometry.resetAnglePose(Rotation2d.fromDegrees(0)); //away from blue driverstation is 0 degrees
     }
     else{
-      drivetrain.resetAnglePose(Rotation2d.fromDegrees(180)); //away from red driverstation is 180 degrees
+      odometry.resetAnglePose(Rotation2d.fromDegrees(180)); //away from red driverstation is 180 degrees
     }
 
     if(disableVisionPoseRotation){
-      drivetrain.disableVisionPoseRotation();
+      odometry.disableVisionPoseRotation();
     }
     else {
-      drivetrain.enableVisionPoseRotation();
+      odometry.enableVisionPoseRotation();
     }
   }
 }

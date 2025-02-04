@@ -19,6 +19,7 @@ import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.util.AprilTag2d;
 import frc.lib2202.subsystem.BaseLimelight;
 import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
+import frc.lib2202.subsystem.OdometryInterface;
 import frc.lib2202.subsystem.hid.HID_Subsystem;
 
 /*
@@ -48,6 +49,7 @@ public class TargetCentricDrive extends Command {
 
   private state currentState;
   final DriveTrainInterface drivetrain;
+  final OdometryInterface odometry;
   final SwerveDriveKinematics kinematics;
   final HID_Subsystem dc;
   final RobotLimits limits;
@@ -101,6 +103,7 @@ public class TargetCentricDrive extends Command {
     
     this.dc = RobotContainer.getSubsystem("DC"); // driverControls
     this.drivetrain = RobotContainer.getSubsystem("drivetrain");
+    this.odometry = RobotContainer.getSubsystem("odometry");
     this.limits = RobotContainer.getRobotSpecs().getRobotLimits();
     this.kinematics = drivetrain.getKinematics();
 
@@ -167,7 +170,7 @@ public class TargetCentricDrive extends Command {
   }
 
   private void calculateRotFromOdometery() {
-    currentPose = drivetrain.getPose();
+    currentPose = odometry.getPose();
     targetRot = (Math.atan2(currentPose.getTranslation().getY() - targetPose.location.getY(),
         currentPose.getTranslation().getX() - targetPose.location.getX())); // [-pi, pi]
     //targetRot = targetRot - Math.PI; //invert facing to have shooter face target - Not needed for betabot
@@ -205,7 +208,7 @@ public class TargetCentricDrive extends Command {
     xSpeed = MathUtil.clamp(xSpeed, -limits.kMaxSpeed, limits.kMaxSpeed);
     ySpeed = MathUtil.clamp(ySpeed, -limits.kMaxSpeed, limits.kMaxSpeed);
 
-    currrentHeading = drivetrain.getPose().getRotation();
+    currrentHeading = odometry.getPose().getRotation();
     // convert field centric speeds to robot centric
     ChassisSpeeds tempChassisSpeed = (DriverStation.getAlliance().get().equals(Alliance.Blue))
         ? ChassisSpeeds.fromFieldRelativeSpeeds(xSpeed, ySpeed, rot, currrentHeading)
