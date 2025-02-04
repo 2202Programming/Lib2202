@@ -73,10 +73,14 @@ public class VisionPoseEstimator extends SubsystemBase {
 
     // no-args ctor, default timings
     public VisionPoseEstimator() {
-        this(0.1, 3.0); // typical settings
+        this(   0.1, 3.0, "limelight"); // typical settings
+    }
+    // no-args ctor, default timings
+    public VisionPoseEstimator(String limelightName) {
+        this(   0.1, 3.0, limelightName); // typical settings
     }
 
-    public VisionPoseEstimator(double kTimeoffset, double watchdog_interval) {
+    public VisionPoseEstimator(double kTimeoffset, double watchdog_interval, String limelightName) {
         this.kTimeoffset = kTimeoffset;
         watchdog = new VisionWatchdog(watchdog_interval);
         m_field = new Field2d();
@@ -84,7 +88,7 @@ public class VisionPoseEstimator extends SubsystemBase {
         // other subsystems
         sdt = RobotContainer.getSubsystemOrNull("drivetrain");
         sensors = RobotContainer.getRobotSpecs().getHeadingProvider();
-        limelight = RobotContainer.getSubsystemOrNull("limelight");
+        limelight = RobotContainer.getSubsystemOrNull(limelightName);
 
         // confirm config is correct
         correct_config = sdt != null && sensors != null && (limelight != null);

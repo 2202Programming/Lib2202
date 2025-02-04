@@ -94,6 +94,9 @@ public class TargetCentricDrive extends Command {
   final SlewRateLimiter rotLimiter = new SlewRateLimiter(3);
 
   public TargetCentricDrive(AprilTag2d redTarget, AprilTag2d blueTarget) {
+     this(redTarget, blueTarget, "limelight");
+  }
+  public TargetCentricDrive(AprilTag2d redTarget, AprilTag2d blueTarget, String limelightName) {
     this.redTarget = redTarget;
     this.blueTarget = blueTarget;
     
@@ -102,7 +105,7 @@ public class TargetCentricDrive extends Command {
     this.limits = RobotContainer.getRobotSpecs().getRobotLimits();
     this.kinematics = drivetrain.getKinematics();
 
-    this.limelight = RobotContainer.getSubsystem("limelight");
+    this.limelight = RobotContainer.getSubsystem(limelightName);
     
     addRequirements(drivetrain); // This means we area read-only for everything but drivetrain                               
 
