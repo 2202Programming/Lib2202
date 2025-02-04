@@ -18,10 +18,10 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.Limelight;
 import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
-import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 public class FaceToTag extends Command {
-  private final SwerveDrivetrain drivetrain;
+  private final DriveTrainInterface drivetrain;
   private final Limelight limelight;
   double TimeOut = 1.0;  //giveup if we take too long
 
@@ -79,8 +79,8 @@ public class FaceToTag extends Command {
     this.redTargetID = redTargetID;
     this.blueTargetID = blueTargetID;
 
-    limelight = RobotContainer.getSubsystem(Limelight.class);
-    drivetrain = RobotContainer.getSubsystem(SwerveDrivetrain.class);
+    limelight = RobotContainer.getSubsystem("limelight");
+    drivetrain = RobotContainer.getSubsystem("drivetrain");
 
     addRequirements(drivetrain);
 

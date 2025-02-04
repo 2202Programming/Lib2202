@@ -14,11 +14,11 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
-import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.util.AprilTag2d;
 
 public class RotateTo extends Command {
-  private final SwerveDrivetrain drivetrain;
+  private final DriveTrainInterface drivetrain;
   private PIDController pid;
   private final double kp = 0.05;
   private final double ki = 0.0;
@@ -43,7 +43,7 @@ public class RotateTo extends Command {
     this.redTarget = redTarget;
     this.blueTarget = blueTarget;
 
-    drivetrain = RobotContainer.getSubsystem(SwerveDrivetrain.class);
+    drivetrain = RobotContainer.getSubsystem("drivetrain");
     addRequirements(drivetrain);
     pid = new PIDController(kp, ki, kd);
     pid.enableContinuousInput(-180.0, 180.0);

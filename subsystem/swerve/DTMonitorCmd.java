@@ -28,12 +28,12 @@ public class DTMonitorCmd extends WatcherCmd {
   NetworkTableEntry yMetersPerSec;
 
   // accessors for drivetrain
-  final SwerveDrivetrain sdt;
+  final DriveTrainInterface sdt;
   final ChassisConfig cc;
 
 
   public DTMonitorCmd() {
-    sdt = RobotContainer.getSubsystem(SwerveDrivetrain.class);
+    sdt = RobotContainer.getSubsystem("drivetrain");
     cc = RobotContainer.getRobotSpecs().getChassisConfig();
     
     // use smartdashboard for complex objects

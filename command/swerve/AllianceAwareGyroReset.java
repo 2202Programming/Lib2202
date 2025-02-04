@@ -10,11 +10,11 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import frc.lib2202.builder.RobotContainer;
-import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 public class AllianceAwareGyroReset extends InstantCommand {
   private boolean disableVisionPoseRotation;
-  final private SwerveDrivetrain drivetrain; 
+  final private DriveTrainInterface drivetrain;
 
 
   //resets the robot rotation/gyro, assuming robot is facing AWAY from driver, and will use alliance
@@ -22,7 +22,7 @@ public class AllianceAwareGyroReset extends InstantCommand {
   //Also has option to disable future vision rotation updates (and just rely on gryo going forward)
   public AllianceAwareGyroReset(boolean disableVisionRotation) {
     this.disableVisionPoseRotation = disableVisionRotation;
-    this.drivetrain = RobotContainer.getSubsystem(SwerveDrivetrain.class);
+    this.drivetrain = RobotContainer.getSubsystem("drivetrain");
   }
 
   public AllianceAwareGyroReset(){
