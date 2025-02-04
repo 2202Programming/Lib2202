@@ -221,6 +221,7 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   }
 
   // used for testing
+  @SuppressWarnings("unused")
   private void testDrive(double speed, double angle) {
     // output the angle and speed (meters per sec) for each module
     for (int i = 0; i < modules.length; i++) {
