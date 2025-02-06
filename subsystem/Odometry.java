@@ -48,11 +48,13 @@ public class Odometry extends SubsystemBase implements OdometryInterface {
         this.drivetrain = drivetrain;
         this.gyro = gyro;
 
-        m_pose = new Pose2d();
+        m_pose = new Pose2d(0, 0, gyro.getRotation2d());
         // Field2d tracks multiple objects by name, Robot
         m_field = new Field2d();
         m_field_obj = m_field.getObject(poseName);
         kinematics = drivetrain.getKinematics();
+        meas_pos = drivetrain.getSwerveModulePositions();
+
         odometry = new SwerveDriveOdometry(kinematics, gyro.getHeading(), meas_pos, m_pose);
     }
 
