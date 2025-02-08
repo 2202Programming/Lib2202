@@ -9,11 +9,13 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
-import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
+import frc.lib2202.subsystem.OdometryInterface;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 public class TestRotateVelocity extends Command {
 
-    final SwerveDrivetrain drivetrain;
+    final DriveTrainInterface drivetrain;
+    final OdometryInterface odometry;
     final SwerveDriveKinematics kinematics;
     final SwerveModulePosition[] meas_pos;
     final double[] initial_positions;
@@ -27,7 +29,8 @@ public class TestRotateVelocity extends Command {
     Rotation2d heading0;
 
     public TestRotateVelocity(double omega, double time) {
-        drivetrain = RobotContainer.getSubsystem(SwerveDrivetrain.class);
+        drivetrain = RobotContainer.getSubsystem("drivetrain");
+        odometry = RobotContainer.getSubsystem("odometry");
         kinematics = drivetrain.getKinematics();
         meas_pos = drivetrain.getSwerveModulePositions();
         initial_positions = new double[meas_pos.length];
@@ -40,7 +43,7 @@ public class TestRotateVelocity extends Command {
 
     @Override
     public void initialize() {
-        drivetrain.setPose(new Pose2d(0.0, 0.0, heading0));
+        odometry.setPose(new Pose2d(0.0, 0.0, heading0));
         var x_vel = 0.0;
         var y_vel = 0.0;
         moving = new ChassisSpeeds(x_vel, y_vel, omega);

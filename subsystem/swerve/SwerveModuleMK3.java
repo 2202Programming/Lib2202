@@ -166,7 +166,7 @@ public class SwerveModuleMK3 {
     driveMotor.configure(driveCfg, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     driveMotorPID = driveMotor.getClosedLoopController();
     driveEncoder = driveMotor.getEncoder();   
-    driveEncoder.setPosition(0.0);
+    setPosition(0.0);
     
     sleep(100);
     // Angle Motor config
@@ -327,6 +327,13 @@ public class SwerveModuleMK3 {
 
   public void simulationPeriodic() {
 
+  }
+
+  // driveEncoder position 
+  public void setPosition(double position){
+    // set measured_position and encoder to new position.
+    m_position = position;
+    driveEncoder.setPosition(position);
   }
 
   /**

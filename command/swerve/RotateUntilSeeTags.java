@@ -16,11 +16,13 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.Limelight;
 import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
-import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
+import frc.lib2202.subsystem.OdometryInterface;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.util.AprilTag2d;
 
 public class RotateUntilSeeTags extends Command {
-  final SwerveDrivetrain drivetrain;
+  final DriveTrainInterface drivetrain;
+  final private OdometryInterface odometry;
   Limelight limelight;
 
   private PIDController pid;
@@ -48,8 +50,10 @@ public class RotateUntilSeeTags extends Command {
     this.redTarget = redTarget;
     this.blueTarget = blueTarget;
 
-    drivetrain = RobotContainer.getSubsystem(SwerveDrivetrain.class);
-    limelight = RobotContainer.getSubsystem(Limelight.class);
+    drivetrain = RobotContainer.getSubsystem("drivetrain");
+    limelight = RobotContainer.getSubsystem("limelight");
+    odometry = RobotContainer.getSubsystem("odometry");
+
     addRequirements(drivetrain);
     pid = new PIDController(kp, ki, kd);
     pid.enableContinuousInput(-180.0, 180.0);
@@ -65,7 +69,7 @@ public class RotateUntilSeeTags extends Command {
     targetPose = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTarget : redTarget;
 
     timer.restart();
-    currentPose = drivetrain.getPose();
+    currentPose = odometry.getPose();
     targetRot = (Math.atan2(currentPose.getTranslation().getY() - targetPose.location.getY(),
         currentPose.getTranslation().getX() - targetPose.location.getX())) // [-pi, pi]
         * 180 / Math.PI ;
@@ -79,7 +83,7 @@ public class RotateUntilSeeTags extends Command {
   }
 
   private void calculate() {
-    currentPose = drivetrain.getPose();
+    currentPose = odometry.getPose();
     outputModuleState = kinematics.toSwerveModuleStates(ChassisSpeeds.fromFieldRelativeSpeeds(
         0,
         0,

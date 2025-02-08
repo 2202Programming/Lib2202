@@ -11,19 +11,19 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
-import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 public class driveToPose extends Command {
 
   private Pose2d targetPose;
-  private SwerveDrivetrain m_Drivetrain;
+  private DriveTrainInterface m_Drivetrain;
   private PathConstraints pathConstraints;
 
   /** Creates a new driveToPose. */
   public driveToPose(Pose2d targetPose) {
 
     this.targetPose = targetPose;
-    m_Drivetrain = RobotContainer.getSubsystem("DRIVETRAIN");
+    m_Drivetrain = RobotContainer.getSubsystem("drivetrain");
     addRequirements(m_Drivetrain);
 
   }

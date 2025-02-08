@@ -9,8 +9,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.builder.RobotLimits;
-import frc.lib2202.subsystem.hid.HID_Xbox_Subsystem;
-import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
+import frc.lib2202.subsystem.hid.HID_Subsystem;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 /* Current driving behavior:
   Starts in field centric
@@ -21,8 +21,8 @@ import frc.lib2202.subsystem.swerve.SwerveDrivetrain;
 */
 public class RobotCentricDrive extends Command {
 
-  final SwerveDrivetrain drivetrain;
-  final HID_Xbox_Subsystem dc;
+  final DriveTrainInterface drivetrain;
+  final HID_Subsystem dc;
   final SwerveDriveKinematics kinematics;
   final RobotLimits limits;
 
@@ -38,15 +38,11 @@ public class RobotCentricDrive extends Command {
   double log_counter = 0;
 
 public RobotCentricDrive() {
-    this.dc = RobotContainer.getSubsystem("DC");       //driverControls
-    this.drivetrain = RobotContainer.getSubsystem(SwerveDrivetrain.class);
-    this.limits = RobotContainer.getRobotSpecs().getRobotLimits();
+    this(RobotContainer.getSubsystem("drivetrain"),
+         RobotContainer.getSubsystem("DC"));
+    }
 
-    addRequirements(drivetrain);
-    this.kinematics = drivetrain.getKinematics();
-  }
-
-  public RobotCentricDrive(SwerveDrivetrain drivetrain, HID_Xbox_Subsystem dc) {
+  public RobotCentricDrive(DriveTrainInterface drivetrain, HID_Subsystem dc) {
     this.dc = dc;
     this.drivetrain = drivetrain;
     this.limits = RobotContainer.getRobotSpecs().getRobotLimits();

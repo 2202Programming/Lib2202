@@ -30,13 +30,12 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.swerve.config.ChassisConfig;
 import frc.lib2202.subsystem.swerve.config.ModuleConfig;
 import frc.lib2202.util.ModMath;
 
-public class SwerveDrivetrain extends SubsystemBase {
+public class SwerveDrivetrain extends DriveTrainInterface {
   static final String canBusName = "rio";
   static final double longWaitSeconds = 1.0; // cancode config wait
 
@@ -132,9 +131,9 @@ public class SwerveDrivetrain extends SubsystemBase {
       // canCoders[i].getPosition(), canCoders[i].getVelocity());
     }
 
-    m_odometry = new SwerveDriveOdometry(kinematics, sensors.getRotation2d(), meas_pos);
+    m_odometry = new SwerveDriveOdometry(kinematics, sensors.getRotation2d(), meas_pos); //default pose is 0,0,0
     meas_states = kinematics.toSwerveModuleStates(new ChassisSpeeds(0, 0, 0));
-    m_pose = m_odometry.update(sensors.getRotation2d(), meas_pos);
+    m_pose = m_odometry.getPoseMeters();   //update(sensors.getRotation2d(), meas_pos);
 
     configureAutoBuilder();
     offsetDebug();
@@ -217,12 +216,13 @@ public class SwerveDrivetrain extends SubsystemBase {
   }
 
   // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-  public void driveRobotRelative(ChassisSpeeds chassisSpeed) {
+  private void driveRobotRelative(ChassisSpeeds chassisSpeed) {
     drive(kinematics.toSwerveModuleStates(chassisSpeed));
   }
 
   // used for testing
-  public void testDrive(double speed, double angle) {
+  @SuppressWarnings("unused")
+  private void testDrive(double speed, double angle) {
     // output the angle and speed (meters per sec) for each module
     for (int i = 0; i < modules.length; i++) {
       modules[i].setDesiredState(new SwerveModuleState(speed, new Rotation2d(Math.toRadians(angle))));
@@ -298,6 +298,20 @@ public class SwerveDrivetrain extends SubsystemBase {
   @Override
   public void simulationPeriodic() {
     // WIP
+  }
+
+  //set all module positions to given position [m].
+  // Used mostly for debugging pathing and other testing.
+  // Note, odometry tracks wheel positions internally
+  // so any position reset, should be used in conjuection 
+  // with odometry.resetPosition() call.
+  public void setPositions(double position) {
+    for (int i = 0; i < modules.length; i++) {
+      // module state/encoder
+      modules[i].setPosition(position);
+      // our local position copy
+      meas_pos[i].distanceMeters = position;
+    }
   }
 
   public SwerveDriveOdometry getOdometry() {
