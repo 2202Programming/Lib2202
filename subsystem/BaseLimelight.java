@@ -13,7 +13,7 @@ import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
 
 
 public abstract class BaseLimelight extends SubsystemBase {
-
+    protected final int FRAME_MOD = 20;
     protected NetworkTable table;
     protected NetworkTable outputTable;
 
@@ -86,7 +86,6 @@ public abstract class BaseLimelight extends SubsystemBase {
         outputTx = outputTable.getEntry("/Limelight X error");
         distanceToTargetTag = outputTable.getEntry("/Distance To TargetTag");
         disableLED();
-
     }
 
     public String getName(){ return this.name;}
@@ -144,7 +143,7 @@ public abstract class BaseLimelight extends SubsystemBase {
     }
 
     public double getTA() {
-        return LimelightHelpers.getTA("");
+        return LimelightHelpers.getTA(this.name);
     }
 
     public LimelightTarget_Fiducial[] getAprilTagsFromHelper(){
@@ -221,8 +220,8 @@ public abstract class BaseLimelight extends SubsystemBase {
     }
 
     public void log() {
-        log_counter++;
-        if (log_counter % 20 == 0) {
+        
+        if (log_counter % FRAME_MOD == 0) {
             NT_hasTarget.setBoolean(targetValid);
 
             if (bluePose != null) {
@@ -238,6 +237,7 @@ public abstract class BaseLimelight extends SubsystemBase {
                         .setDouble(((OdometryInterface)RobotContainer.getSubsystem("odometry")).getDistanceToTranslation(targetTag));
             }
         }
+        log_counter++;
     }
 
 }

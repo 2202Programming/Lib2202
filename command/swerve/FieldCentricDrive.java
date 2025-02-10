@@ -41,7 +41,7 @@ public class FieldCentricDrive extends Command {
   public FieldCentricDrive() {
     this.dc = RobotContainer.getSubsystem("DC");       //driverControls
     this.drivetrain = RobotContainer.getSubsystem("drivetrain");
-    this.gyro = RobotContainer.getSubsystem("sensors");
+    this.gyro = RobotContainer.getRobotSpecs().getHeadingProvider(); 
     this.limits = RobotContainer.getRobotSpecs().getRobotLimits();
 
     addRequirements(drivetrain);

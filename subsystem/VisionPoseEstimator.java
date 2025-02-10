@@ -110,7 +110,7 @@ public class VisionPoseEstimator extends SubsystemBase // TODO implements Odomet
         // Estimators
         initializeEstimator();
         // start the network monitor
-        new VisionPoseEstimatorMonitorCmd();
+        this.new VisionPoseEstimatorMonitorCmd();
     } // ctor
 
     @Override
@@ -250,17 +250,7 @@ public class VisionPoseEstimator extends SubsystemBase // TODO implements Odomet
                         + Math.pow(m_odometry.getPose().getTranslation().getY() - targetTranslation.getY(), 2.0));
     }
 
-     /**************************************
-     * // bearing should be to or from *what*? split out?
-     * public double getBearing() {
-     *  return filteredBearing;
-     * }
-     * 
-     * public double getVelocity() {
-     *  return filteredVelocity;
-     * }
-     ************************************/
-
+    
     /*
      * Watcher for SwervePoseEstimator and its vision data.
      *

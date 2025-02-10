@@ -9,8 +9,7 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 
 public class Limelight extends BaseLimelight {
-  /** Creates a new Limelight_Subsystem. */
-
+ // BaseLimelight contains working vars and API accessors
   public Limelight(){
     this("limelight");
   }
@@ -22,27 +21,29 @@ public class Limelight extends BaseLimelight {
 
   @Override
   public void periodic() {
-    // This method will be called once per scheduler run
-    log();
-
     pipeline = pipelineNTE.getInteger(0);
 
     // LL apriltags stuff
     LimelightHelpers.LimelightResults llresults = LimelightHelpers.getLatestResults(this.name);
     numAprilTags = llresults.targets_Fiducials.length;
-    nt_numApriltags.setInteger(numAprilTags);
-    visionTimestamp = Timer.getFPGATimestamp() - (LimelightHelpers.getLatency_Pipeline(this.name) / 1000.0)
+  
+    visionTimestamp = Timer.getFPGATimestamp() 
+        - (LimelightHelpers.getLatency_Pipeline(this.name) / 1000.0)
         - (LimelightHelpers.getLatency_Capture(this.name) / 1000.0);
 
     if (numAprilTags > 0) {
       bluePose = LimelightHelpers.getBotPose2d_wpiBlue(this.name);
-      teamPose = LimelightHelpers.getBotPose2d_wpiBlue(this.name); // assume/default blue for now
+      teamPose = bluePose;  //LimelightHelpers.getBotPose2d_wpiBlue(this.name); // assume/default blue for now
 
       var alliance = DriverStation.getAlliance();
       if (alliance.isPresent() && alliance.get() == Alliance.Red)
         // aliance info exists AND is red
         teamPose = LimelightHelpers.getBotPose2d_wpiRed(this.name);
     }
+    
+    // update a few NT entriesS every frame
+    nt_numApriltags.setInteger(numAprilTags);
+    log(); // do logging at end
   }
 
 }
