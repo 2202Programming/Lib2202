@@ -136,12 +136,12 @@ public class PIDFController extends PIDController {
         System.out.println("*** ERROR *** SparkMax Flash Failed during copyTo command. Error val=" + driveError);
     }
 
-    public void copyChangesTo(SparkMax controller, SparkMaxConfig motorConfig, PIDFController updated) {
+    public void copyChangesTo(SparkBase controller, SparkBaseConfig motorConfig, PIDFController updated) {
         copyChangesTo(controller, motorConfig, ClosedLoopSlot.kSlot0, updated);
     }
 
     // compares an updated PIDF with this one and updates it and the hardware
-    public void copyChangesTo(SparkMax motorController, SparkMaxConfig motorConfig, ClosedLoopSlot slot, PIDFController updated) {
+    public void copyChangesTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot, PIDFController updated) {
         boolean changed = false;
         var pidCfg =  motorConfig.closedLoop;
 

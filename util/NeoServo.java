@@ -7,16 +7,20 @@ package frc.lib2202.util;
 import com.revrobotics.REVLibError;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.spark.ClosedLoopSlot;
+import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
 import com.revrobotics.spark.SparkClosedLoopController;
+import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkClosedLoopController.ArbFFUnits;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.AlternateEncoderConfig.Type;
 import com.revrobotics.spark.config.ClosedLoopConfig.FeedbackSensor;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+import com.revrobotics.spark.config.SparkFlexConfig;
+import com.revrobotics.spark.config.SparkBaseConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
 
 import edu.wpi.first.math.MathUtil;
@@ -31,7 +35,7 @@ import frc.lib2202.command.WatcherCmd;
 
 public class NeoServo implements VelocityControlled {
     String name = "no-name";
-
+    Class mtrClass;
     // commands
     double velocity_cmd; // computed from pid, or external_vel_cmd
     double maxVelocity; // limits
@@ -61,8 +65,8 @@ public class NeoServo implements VelocityControlled {
     final ClosedLoopSlot hwVelSlot;
 
     // hardware
-    final SparkMax ctrl;
-    final SparkMaxConfig ctrlCfg;
+    final SparkBase ctrl;
+    final SparkBaseConfig ctrlCfg;
     final SparkClosedLoopController pid;
     final RelativeEncoder encoder;
     RelativeEncoder posEncoder = null;
@@ -75,14 +79,14 @@ public class NeoServo implements VelocityControlled {
             PIDController positionPID,
             PIDFController hwVelPIDcfg,
             boolean inverted, ClosedLoopSlot hwVelSlot,
-            Type encType, int kCPR) {
-    
+            Type encType, int kCPR, Class mtrClass) {
+        this.mtrClass = mtrClass;
+        ctrl = (mtrClass == SparkMax.class) ? new SparkMax(canID, motorType) : new SparkFlex(canID, motorType);
+        ctrlCfg = (mtrClass == SparkMax.class) ? new SparkMaxConfig() : new SparkFlexConfig();
         setName("NeoServo-" + canID);  //until a better name is selected
-        ctrl = new SparkMax(canID, motorType);
         ctrl.setCANTimeout(50); //enter blocking mode for config
         ctrl.clearFaults();
         //not used libs2025 update  ctrl.restoreFactoryDefaults();
-        ctrlCfg = new SparkMaxConfig();
         ctrlCfg.inverted(inverted)
                .idleMode(IdleMode.kBrake);
        
@@ -96,9 +100,15 @@ public class NeoServo implements VelocityControlled {
                 .outputRange(-1.0, 1.0);
             
             // dpl 1/4/2025 looks like only kQuadrature is only type supported.
-            ctrlCfg.alternateEncoder
+            if(mtrClass ==  SparkMax.class){
+                ((SparkMaxConfig) ctrlCfg).alternateEncoder
                 .countsPerRevolution(kCPR)
                 .inverted(false);
+            } else {
+                ((SparkFlexConfig) ctrlCfg).externalEncoder
+                .countsPerRevolution(kCPR)
+                .inverted(false);
+            }
                 /*******************  may need these 
                 .averageDepth(tbd)
                 .positionConversionFactor(tbd)
@@ -138,7 +148,7 @@ public class NeoServo implements VelocityControlled {
 
     public NeoServo(int canID, PIDController positionPID, PIDFController hwVelPIDcfg, boolean inverted, ClosedLoopSlot hwVelSlot) {
         this(canID, MotorType.kBrushless, positionPID, hwVelPIDcfg, inverted,  hwVelSlot, 
-            null, 0);        
+            null, 0, SparkMax.class);        
     }
 
     // Works now with given motor type and an alt encoder
@@ -148,7 +158,26 @@ public class NeoServo implements VelocityControlled {
             Type extEncoderType, int kCPR,  
             boolean inverted, ClosedLoopSlot hwVelSlot) {
         this(canID, MotorType.kBrushless, positionPID, hwVelPIDcfg, inverted,  hwVelSlot, 
-            extEncoderType, kCPR);        
+            extEncoderType, kCPR, SparkMax.class);        
+    }
+
+    public NeoServo(int canID, PIDController positionPID, PIDFController hwVelPIDcfg, boolean inverted, Class mtrClass) {
+        this(canID, positionPID, hwVelPIDcfg, inverted, ClosedLoopSlot.kSlot0, mtrClass);
+    }
+
+    public NeoServo(int canID, PIDController positionPID, PIDFController hwVelPIDcfg, boolean inverted, ClosedLoopSlot hwVelSlot, Class mtrClass) {
+        this(canID, MotorType.kBrushless, positionPID, hwVelPIDcfg, inverted,  hwVelSlot, 
+            null, 0, mtrClass);        
+    }
+
+    // Works now with given motor type and an alt encoder
+    public NeoServo(int canID, MotorType motorType,
+            PIDController positionPID,
+            PIDFController hwVelPIDcfg,
+            Type extEncoderType, int kCPR,  
+            boolean inverted, ClosedLoopSlot hwVelSlot, Class mtrClass) {
+        this(canID, MotorType.kBrushless, positionPID, hwVelPIDcfg, inverted,  hwVelSlot, 
+            extEncoderType, kCPR, mtrClass);        
     }
 
     void errorCheck() {
@@ -176,19 +205,32 @@ public class NeoServo implements VelocityControlled {
      * scale_rotation - [units/rotation]
      */
     public NeoServo addAltPositionEncoder(Type encType, int CPR, double scale_rotations){
-        ctrlCfg.alternateEncoder
+        if(mtrClass == SparkMax.class){
+            ((SparkMaxConfig) ctrlCfg).alternateEncoder
             .countsPerRevolution(CPR)
             .positionConversionFactor(scale_rotations)
             .velocityConversionFactor( scale_rotations / 60.0);
+        } else {
+            ((SparkFlexConfig) ctrlCfg).externalEncoder
+            .countsPerRevolution(CPR)
+            .positionConversionFactor(scale_rotations)
+            .velocityConversionFactor( scale_rotations / 60.0);
+        }
         ctrl.configure(ctrlCfg, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
         return this;
     }
 
     // methods to tune the servo very SmartMax Neo specific
     public NeoServo setConversionFactor(double conversionFactor) {
-        ctrlCfg.alternateEncoder            
+        if(mtrClass == SparkMax.class){
+        ((SparkMaxConfig)ctrlCfg).alternateEncoder            
             .positionConversionFactor(conversionFactor)
             .velocityConversionFactor( conversionFactor / 60.0);
+        } else{
+            ((SparkFlexConfig)ctrlCfg).externalEncoder            
+            .positionConversionFactor(conversionFactor)
+            .velocityConversionFactor( conversionFactor / 60.0);
+        }
         ctrl.configure(ctrlCfg, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
         return this;
     }
@@ -229,7 +271,7 @@ public class NeoServo implements VelocityControlled {
         return this;
     }
 
-    public SparkMax getController() {
+    public SparkBase getController() {
         return ctrl;
     }
 
