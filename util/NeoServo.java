@@ -32,7 +32,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.Constants;
 import frc.lib2202.command.WatcherCmd;
-
+@SuppressWarnings("rawtypes")
 public class NeoServo implements VelocityControlled {
     String name = "no-name";
     Class mtrClass;
@@ -75,6 +75,7 @@ public class NeoServo implements VelocityControlled {
      * internal constructor shared by other forms, does most of setup
      * encoder and pid set in calling constructor.
      */
+
     private NeoServo(int canID, MotorType motorType,
             PIDController positionPID,
             PIDFController hwVelPIDcfg,
