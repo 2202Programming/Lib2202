@@ -8,28 +8,18 @@ import com.ctre.phoenix6.StatusSignal;
 //wip import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.hardware.CANcoder;
-//import com.ctre.phoenix6.signals.AbsoluteSensorRangeValue;
 import com.ctre.phoenix6.signals.SensorDirectionValue;
-
-import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.config.PIDConstants;
-import com.pathplanner.lib.config.RobotConfig;
-import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.SparkFlex;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.swerve.config.ChassisConfig;
 import frc.lib2202.subsystem.swerve.config.ModuleConfig;
@@ -54,8 +44,8 @@ public class SwerveDrivetrain extends DriveTrainInterface {
    * https://docs.wpilib.org/en/stable/docs/software/kinematics-and-odometry/swerve-drive-kinematics.html#constructing-the-kinematics-object
    */
   final SwerveDriveKinematics kinematics;
-  final SwerveDriveOdometry m_odometry;
-  Pose2d m_pose; // pose based strictly on the odometry
+  //final SwerveDriveOdometry m_odometry;
+  //Pose2d m_pose; // pose based strictly on the odometry
 
   // controls behavior of visionPposeestimator
   boolean visionPoseUsingRotation = true;
@@ -70,10 +60,7 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   final SwerveModuleMK3[] modules;
   final CANcoder canCoders[];
 
-  // pose/field measurements
-  public final Field2d m_field; // Field2d based on odometry only
-  private RobotConfig GUIconfig;
-
+ 
 
   public SwerveDrivetrain() {
       this(SparkMax.class);
@@ -81,8 +68,6 @@ public class SwerveDrivetrain extends DriveTrainInterface {
 
   @SuppressWarnings("rawtypes")
   public SwerveDrivetrain(Class mtrClass) {
-    m_field = new Field2d();
-
     cc = RobotContainer.getRobotSpecs().getChassisConfig();
     mc = RobotContainer.getRobotSpecs().getModuleConfigs();
 
@@ -131,11 +116,11 @@ public class SwerveDrivetrain extends DriveTrainInterface {
       // canCoders[i].getPosition(), canCoders[i].getVelocity());
     }
 
-    m_odometry = new SwerveDriveOdometry(kinematics, sensors.getRotation2d(), meas_pos); //default pose is 0,0,0
+    ///m_odometry = new SwerveDriveOdometry(kinematics, sensors.getRotation2d(), meas_pos); //default pose is 0,0,0
     meas_states = kinematics.toSwerveModuleStates(new ChassisSpeeds(0, 0, 0));
-    m_pose = m_odometry.getPoseMeters();   //update(sensors.getRotation2d(), meas_pos);
+    ///m_pose = m_odometry.getPoseMeters();   //update(sensors.getRotation2d(), meas_pos);
 
-    configureAutoBuilder();
+    ///configureAutoBuilder();
     offsetDebug();
   }
 
@@ -216,7 +201,8 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   }
 
   // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-  private void driveRobotRelative(ChassisSpeeds chassisSpeed) {
+  // used by pathPlaner
+  public void driveRobotRelative(ChassisSpeeds chassisSpeed) {
     drive(kinematics.toSwerveModuleStates(chassisSpeed));
   }
 
@@ -244,51 +230,11 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     }
 
     // this pose is only based on odometry, no vision
-    m_pose = m_odometry.update(sensors.getRotation2d(), meas_pos);
-    m_field.setRobotPose(m_odometry.getPoseMeters());
+    ///m_pose = m_odometry.update(sensors.getRotation2d(), meas_pos);
+    ///m_field.setRobotPose(m_odometry.getPoseMeters());
   }
 
-  // AutoBuilder for PathPlanner - uses internal static vars in AutoBuilder
-  void configureAutoBuilder() {
-    try{
-      GUIconfig = RobotConfig.fromGUISettings();
-
-    // Configure the AutoBuilder last
-    AutoBuilder.configure(
-        this::getPose, // Robot pose supplier
-        this::autoPoseSet, // Method to reset odometry (will be called if your auto has a starting pose)
-        this::getChassisSpeeds, // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-        this::driveRobotRelative, // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-        new PPHolonomicDriveController( // HolonomicPathFollowerConfig, this should likely live in your
-                                         // Constants class
-            new PIDConstants(7.0, 0.0, 0.0), // Translation PID constants
-            new PIDConstants(7.0, 0.0, 0.0)
-        ), // Rotation PID constants    
-        GUIconfig,
-        () -> {
-          // Boolean supplier that controls when the path will be mirrored for the red
-          // alliance
-          // This will flip the path being followed to the red side of the field.
-          // THE ORIGIN WILL REMAIN ON THE BLUE SIDE
-
-          var alliance = DriverStation.getAlliance();
-          if (alliance.isPresent()) {
-            return alliance.get() == DriverStation.Alliance.Red;
-          }
-          return false;
-        },
-        this // Reference to this subsystem to set requirements
-    );
-
-  } catch (Exception e) {
-    // Handle exception as needed
-    System.out.println("PATHING - Could not initialize PathPlanner check for ~/deploy/pathplanner/settings.json");
-    e.printStackTrace();
-    System.out.println("PATHING - End of stack trace --------------");
-  }
-
-
-  }
+  
 
   public void simulationInit() {
     // WIP placeholder
@@ -314,9 +260,9 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     }
   }
 
-  public SwerveDriveOdometry getOdometry() {
-    return m_odometry;
-  }
+  /// public SwerveDriveOdometry getOdometry() {
+  ///   return m_odometry;
+  /// }
 
   public SwerveModuleMK3 getMK3(int modID) {
     if ((modID < 0) || (modID > modules.length - 1))
@@ -324,68 +270,68 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     return modules[modID];
   }
 
-  // called by visionPoseEstimator
-  public boolean useVisionRotation() {
-    return visionPoseUsingRotation;
-  }
+  // // called by visionPoseEstimator
+  // public boolean useVisionRotation() {
+  //   return visionPoseUsingRotation;
+  // }
 
-  public boolean useVisionPose() {
-    return visionPoseEnabled;
-  }
+  // public boolean useVisionPose() {
+  //   return visionPoseEnabled;
+  // }
 
-  public void setZeroPose() {
-    setPose(new Pose2d(new Translation2d(0, 0), new Rotation2d(0)));
-  }
+  // public void setZeroPose() {
+  //   setPose(new Pose2d(new Translation2d(0, 0), new Rotation2d(0)));
+  // }
 
-  // hack to find auto reset point
-  public void autoPoseSet(Pose2d pose) {
-    System.out.println("***Auto is reseting pose to: " + pose);
-    setPose(pose);
-  }
+  // // hack to find auto reset point
+  // public void autoPoseSet(Pose2d pose) {
+  //   System.out.println("***Auto is reseting pose to: " + pose);
+  //   setPose(pose);
+  // }
 
-  public void setPose(Pose2d pose) {
-    m_pose = pose;
-    m_odometry.resetPosition(sensors.getRotation2d(), meas_pos, m_pose);
-  }
+  // public void setPose(Pose2d pose) {
+  //   m_pose = pose;
+  //   m_odometry.resetPosition(sensors.getRotation2d(), meas_pos, m_pose);
+  // }
 
-  // these pose accessor are used in cmds, pose value supplied by pose estimator
-  public Pose2d getPose() {
-    return m_pose;
-  }
+  // // these pose accessor are used in cmds, pose value supplied by pose estimator
+  // public Pose2d getPose() {
+  //   return m_pose;
+  // }
 
-  public void printPose() {
-    Pose2d pose = getPose();
-    System.out.println("***POSE X:" + pose.getX() +
-        ", Y:" + pose.getY() +
-        ", Rot:" + pose.getRotation().getDegrees());
-  }
+  // public void printPose() {
+  //   Pose2d pose = getPose();
+  //   System.out.println("***POSE X:" + pose.getX() +
+  //       ", Y:" + pose.getY() +
+  //       ", Rot:" + pose.getRotation().getDegrees());
+  // }
 
-  // These are used by some commands.
-  public void disableVisionPoseRotation() {
-    visionPoseUsingRotation = false;
-    System.out.println("*** Vision pose updating rotation disabled***");
-  }
+  // // These are used by some commands.
+  // public void disableVisionPoseRotation() {
+  //   visionPoseUsingRotation = false;
+  //   System.out.println("*** Vision pose updating rotation disabled***");
+  // }
 
-  public void enableVisionPoseRotation() {
-    visionPoseUsingRotation = true;
-    System.out.println("*** Vision pose updating rotation enabled***");
-  }
+  // public void enableVisionPoseRotation() {
+  //   visionPoseUsingRotation = true;
+  //   System.out.println("*** Vision pose updating rotation enabled***");
+  // }
 
-  public void enableVisionPose() {
-    visionPoseEnabled = true;
-    System.out.println("*** Vision updating pose enabled***");
-  }
+  // public void enableVisionPose() {
+  //   visionPoseEnabled = true;
+  //   System.out.println("*** Vision updating pose enabled***");
+  // }
 
-  public void disableVisionPose() {
-    visionPoseEnabled = false;
-    System.out.println("*** Vision updating pose disabled***");
-  }
+  // public void disableVisionPose() {
+  //   visionPoseEnabled = false;
+  //   System.out.println("*** Vision updating pose disabled***");
+  // }
 
-  // reset angle to be zero, but retain X and Y; takes a Rotation2d object
-  public void resetAnglePose(Rotation2d rot) {
-    m_pose = new Pose2d(getPose().getX(), getPose().getY(), rot);
-    m_odometry.resetPosition(sensors.getRotation2d(), meas_pos, m_pose); // updates gryo offset
-  }
+  // // reset angle to be zero, but retain X and Y; takes a Rotation2d object
+  // public void resetAnglePose(Rotation2d rot) {
+  //   m_pose = new Pose2d(getPose().getX(), getPose().getY(), rot);
+  //   m_odometry.resetPosition(sensors.getRotation2d(), meas_pos, m_pose); // updates gryo offset
+  // }
 
   public SwerveDriveKinematics getKinematics() {
     return kinematics;
@@ -431,11 +377,11 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     System.out.println("***BRAKES RELEASED***");
   }
 
-  public double getDistanceToTranslation(Translation2d targetTranslation) {
-    return Math.sqrt(
-        Math.pow(getPose().getTranslation().getX() - targetTranslation.getX(), 2)
-            + Math.pow(getPose().getTranslation().getY() - targetTranslation.getY(), 2));
+  // public double getDistanceToTranslation(Translation2d targetTranslation) {
+  //   return Math.sqrt(
+  //       Math.pow(getPose().getTranslation().getX() - targetTranslation.getX(), 2)
+  //           + Math.pow(getPose().getTranslation().getY() - targetTranslation.getY(), 2));
 
-  }
+  // }
 
 }

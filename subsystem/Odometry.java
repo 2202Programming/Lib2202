@@ -77,7 +77,7 @@ public class Odometry extends SubsystemBase implements OdometryInterface {
 
     // reset angle to be zero, but retain X and Y; takes a Rotation2d object
     @Override
-    public void resetAnglePose(Rotation2d rot) {
+    public void setAnglePose(Rotation2d rot) {
         setPose(new Pose2d(m_pose.getTranslation(), rot));
     }
 

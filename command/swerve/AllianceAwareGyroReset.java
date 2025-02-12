@@ -33,10 +33,10 @@ public class AllianceAwareGyroReset extends InstantCommand {
   @Override
   public void initialize() {
     if (DriverStation.getAlliance().get() == Alliance.Blue){
-      odometry.resetAnglePose(Rotation2d.fromDegrees(0)); //away from blue driverstation is 0 degrees
+      odometry.setAnglePose(Rotation2d.fromDegrees(0)); //away from blue driverstation is 0 degrees
     }
     else{
-      odometry.resetAnglePose(Rotation2d.fromDegrees(180)); //away from red driverstation is 180 degrees
+      odometry.setAnglePose(Rotation2d.fromDegrees(180)); //away from red driverstation is 180 degrees
     }
 
     if(disableVisionPoseRotation){

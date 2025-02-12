@@ -22,4 +22,6 @@ public abstract class DriveTrainInterface extends SubsystemBase {
     public abstract ChassisSpeeds getFieldRelativeSpeeds();
     
     public abstract void setPositions(double position);
+
+    public abstract void driveRobotRelative(ChassisSpeeds chassisSpeed);
 }
