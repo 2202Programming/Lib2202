@@ -16,7 +16,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
-import frc.lib2202.subsystem.Limelight;
+import frc.lib2202.subsystem.BaseLimelight;
 import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.subsystem.OdometryInterface;
@@ -24,7 +24,7 @@ import frc.lib2202.subsystem.OdometryInterface;
 public class FaceToTag extends Command {
   private final DriveTrainInterface drivetrain;
   private final OdometryInterface odometry;
-  private final Limelight limelight;
+  private final BaseLimelight limelight;
   double TimeOut = 1.0;  //giveup if we take too long
 
   double xSpeed, ySpeed, rot;

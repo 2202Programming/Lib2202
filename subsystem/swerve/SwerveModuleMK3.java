@@ -233,6 +233,7 @@ public class SwerveModuleMK3 {
     realityCheckSparkMax(cc_pos, after);
   }
 
+  //verifies conversion factors got set correctly 
   void realityCheckSparkMax(double angle_cancoder, double internal_angle) {
     boolean result = true;
     // handle different mTypes
@@ -254,8 +255,8 @@ public class SwerveModuleMK3 {
     }
     // handle different mTypes
     EncoderConfigAccessor  a_enc = (mType == SparkMax.class) ? 
-                  ((SparkMax)driveMotor).configAccessor.encoder :
-                  ((SparkFlex)driveMotor).configAccessor.encoder;
+                  ((SparkMax)angleMotor).configAccessor.encoder :
+                  ((SparkFlex)angleMotor).configAccessor.encoder;
    
     if (Math.abs(a_enc.getPositionConversionFactor() - (360.0 / cc.kSteeringGR)) > 0.1) {
       System.out.println("*** ERROR *** " + myprefix + " position conversion factor incorrect for angle");
@@ -263,9 +264,9 @@ public class SwerveModuleMK3 {
       System.out.println("Returned Angle Pos CF: " + a_enc.getPositionConversionFactor());
       result = false;
     }
-    if (Math.abs(a_enc.getVelocityConversionFactor() - (360.0 / cc.kSteeringGR / 60)) > 0.1) {
+    if (Math.abs(a_enc.getVelocityConversionFactor() - (360.0 / cc.kSteeringGR / 60.0)) > 0.1) {
       System.out.println("*** ERROR *** " + myprefix + " velocity conversion factor incorrect for angle");
-      System.out.println("Expected Angle Vel CF: " + (360.0 / cc.kSteeringGR / 60));
+      System.out.println("Expected Angle Vel CF: " + (360.0 / cc.kSteeringGR / 60.0));
       System.out.println("Returned Angle Vel CF: " + a_enc.getVelocityConversionFactor());
       result = false;
     }
@@ -278,25 +279,9 @@ public class SwerveModuleMK3 {
     if (result) {
       System.out.println(myprefix + " passed reality checks.");
     }
-    return;
   }
 
-  /*******************************************lib2025 removed 
-  // _set<> for testing during bring up.
-   void _setInvertAngleCmd(boolean invert) {
-    angleCmdInvert = (invert) ? -1.0 : 1.0;
-    calibrate();
-  }
-
-  void _setInvertAngleMotor(boolean invert) {
-    angleMotor.setInverted(invert);
-  }
-
-  void _setInvertDriveMotor(boolean invert) {
-    driveMotor.setInverted(invert);
-  }
-  **************************************************************/
-
+  
   /**
    * setNTPrefix - causes the network table entries to be created and updated on
    * the periodic() call.

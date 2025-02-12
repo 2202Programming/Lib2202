@@ -60,8 +60,6 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   final SwerveModuleMK3[] modules;
   final CANcoder canCoders[];
 
- 
-
   public SwerveDrivetrain() {
       this(SparkMax.class);
   }
@@ -116,11 +114,7 @@ public class SwerveDrivetrain extends DriveTrainInterface {
       // canCoders[i].getPosition(), canCoders[i].getVelocity());
     }
 
-    ///m_odometry = new SwerveDriveOdometry(kinematics, sensors.getRotation2d(), meas_pos); //default pose is 0,0,0
     meas_states = kinematics.toSwerveModuleStates(new ChassisSpeeds(0, 0, 0));
-    ///m_pose = m_odometry.getPoseMeters();   //update(sensors.getRotation2d(), meas_pos);
-
-    ///configureAutoBuilder();
     offsetDebug();
   }
 
@@ -139,11 +133,6 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     CANcoder canCoder = new CANcoder(cc_ID, canBusName);
     StatusSignal<Angle> abspos = canCoder.getAbsolutePosition().waitForUpdate(longWaitSeconds, true);
     StatusSignal<Angle> pos = canCoder.getPosition().waitForUpdate(longWaitSeconds, true);
-    /*
-     * System.out.println("CC(" + cc_ID + ") before: " +
-     * "\tabspos = " + abspos.getValue() + " (" + abspos.getValue()*360.0+" deg)" +
-     * "\tpos = " + pos.getValue() + " (" + pos.getValue()*360.0 +" deg)" );
-     */
     CANcoderConfiguration configs = new CANcoderConfiguration();
     configs.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 0.5; //AbsoluteSensorRangeValue.Signed_PlusMinusHalf;
     configs.MagnetSensor.MagnetOffset = cc_offset_deg / 360.0; // put offset deg on +/- 0.5 range
@@ -189,7 +178,6 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   }
 
   public void drive(SwerveModuleState[] states) {
-    // this.cur_states = states; //keep copy of commanded states so we can stop()
     // if any one wheel is above max obtainable speed, reduce them all in the same
     // ratio to maintain control
     // SwerveDriveKinematics.desaturateWheelSpeeds(states, DriveTrain.kMaxSpeed);
@@ -228,10 +216,6 @@ public class SwerveDrivetrain extends DriveTrainInterface {
       meas_states[i].angle = meas_pos[i].angle = modules[i].getAngleRot2d();
       meas_pos[i].distanceMeters = modules[i].getPosition();
     }
-
-    // this pose is only based on odometry, no vision
-    ///m_pose = m_odometry.update(sensors.getRotation2d(), meas_pos);
-    ///m_field.setRobotPose(m_odometry.getPoseMeters());
   }
 
   
@@ -270,68 +254,6 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     return modules[modID];
   }
 
-  // // called by visionPoseEstimator
-  // public boolean useVisionRotation() {
-  //   return visionPoseUsingRotation;
-  // }
-
-  // public boolean useVisionPose() {
-  //   return visionPoseEnabled;
-  // }
-
-  // public void setZeroPose() {
-  //   setPose(new Pose2d(new Translation2d(0, 0), new Rotation2d(0)));
-  // }
-
-  // // hack to find auto reset point
-  // public void autoPoseSet(Pose2d pose) {
-  //   System.out.println("***Auto is reseting pose to: " + pose);
-  //   setPose(pose);
-  // }
-
-  // public void setPose(Pose2d pose) {
-  //   m_pose = pose;
-  //   m_odometry.resetPosition(sensors.getRotation2d(), meas_pos, m_pose);
-  // }
-
-  // // these pose accessor are used in cmds, pose value supplied by pose estimator
-  // public Pose2d getPose() {
-  //   return m_pose;
-  // }
-
-  // public void printPose() {
-  //   Pose2d pose = getPose();
-  //   System.out.println("***POSE X:" + pose.getX() +
-  //       ", Y:" + pose.getY() +
-  //       ", Rot:" + pose.getRotation().getDegrees());
-  // }
-
-  // // These are used by some commands.
-  // public void disableVisionPoseRotation() {
-  //   visionPoseUsingRotation = false;
-  //   System.out.println("*** Vision pose updating rotation disabled***");
-  // }
-
-  // public void enableVisionPoseRotation() {
-  //   visionPoseUsingRotation = true;
-  //   System.out.println("*** Vision pose updating rotation enabled***");
-  // }
-
-  // public void enableVisionPose() {
-  //   visionPoseEnabled = true;
-  //   System.out.println("*** Vision updating pose enabled***");
-  // }
-
-  // public void disableVisionPose() {
-  //   visionPoseEnabled = false;
-  //   System.out.println("*** Vision updating pose disabled***");
-  // }
-
-  // // reset angle to be zero, but retain X and Y; takes a Rotation2d object
-  // public void resetAnglePose(Rotation2d rot) {
-  //   m_pose = new Pose2d(getPose().getX(), getPose().getY(), rot);
-  //   m_odometry.resetPosition(sensors.getRotation2d(), meas_pos, m_pose); // updates gryo offset
-  // }
 
   public SwerveDriveKinematics getKinematics() {
     return kinematics;
@@ -376,12 +298,4 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     }
     System.out.println("***BRAKES RELEASED***");
   }
-
-  // public double getDistanceToTranslation(Translation2d targetTranslation) {
-  //   return Math.sqrt(
-  //       Math.pow(getPose().getTranslation().getX() - targetTranslation.getX(), 2)
-  //           + Math.pow(getPose().getTranslation().getY() - targetTranslation.getY(), 2));
-
-  // }
-
 }
