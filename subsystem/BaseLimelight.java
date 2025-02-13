@@ -46,11 +46,10 @@ public abstract class BaseLimelight extends SubsystemBase {
 
     protected long pipeline;
 
-    @SuppressWarnings("unused")
+    //@SuppressWarnings("unused")
     protected LinearFilter x_iir;
-    @SuppressWarnings("unused")
+    //@SuppressWarnings("unused")
     protected LinearFilter area_iir;
-    public final String NT_Name = "Vision"; // expose data under DriveTrain table
     protected double filterTC = 0.08; // seconds, 2Hz cutoff T = 1/(2pi*f) was .2hz T=.8
     protected int log_counter = 0;
 
@@ -59,19 +58,19 @@ public abstract class BaseLimelight extends SubsystemBase {
     protected Translation2d targetTag = null;
 
     // private Pose2d megaPose;
-    protected Pose2d teamPose = new Pose2d(); // todo hack inits to avoid NPE 4/8/2023
+    protected Pose2d teamPose = new Pose2d();
     protected Pose2d bluePose = new Pose2d();
     protected int numAprilTags;
     protected double visionTimestamp;
 
-    protected String name;
+    protected String name;  //name of LL, to support multiple LL
 
     public BaseLimelight(String limelight) {
         this.name = limelight;
         x_iir = LinearFilter.singlePoleIIR(filterTC, Constants.DT);
         area_iir = LinearFilter.singlePoleIIR(filterTC, Constants.DT);
-        table = NetworkTableInstance.getDefault().getTable(this.name);  // was "limelight"); //TODO test with multiple Limelights
-        outputTable = NetworkTableInstance.getDefault().getTable(NT_Name + this.name);
+        table = NetworkTableInstance.getDefault().getTable(this.name);
+        outputTable = NetworkTableInstance.getDefault().getTable(this.name +"/out");
 
         leds = table.getEntry("ledMode");
         booleanLeds = table.getEntry("booleanLeds");
