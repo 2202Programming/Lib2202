@@ -36,7 +36,7 @@ import frc.lib2202.util.PIDFController;
 import static frc.lib2202.Constants.DEGperRAD;
 
 public class SwerveModuleMK3 {
-  public final String NT_Name = "DT";
+  public final String NT_Name = "DriveModules";
   @SuppressWarnings("rawtypes")
   final Class mType;   // either SparkMax or SparkFlex
 

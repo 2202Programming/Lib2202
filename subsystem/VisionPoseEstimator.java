@@ -285,18 +285,18 @@ public class VisionPoseEstimator extends SubsystemBase // TODO implements Odomet
         @Override
         public void ntcreate() {
             NetworkTable MonitorTable = getTable();
-            est_ll_pose_x = MonitorTable.getEntry("LL_x");
-            est_ll_pose_y = MonitorTable.getEntry("LL_y");
-            est_ll_pose_h = MonitorTable.getEntry("LL_h");
+            est_ll_pose_x = MonitorTable.getEntry("/LL/X");
+            est_ll_pose_y = MonitorTable.getEntry("/LL/Y");
+            est_ll_pose_h = MonitorTable.getEntry("/LL/Heading");
 
-            est_pv_pose_x = MonitorTable.getEntry("PV_x");
-            est_pv_pose_y = MonitorTable.getEntry("PV_y");
-            est_pv_pose_h = MonitorTable.getEntry("PV_h");
+            est_pv_pose_x = MonitorTable.getEntry("/PV/X");
+            est_pv_pose_y = MonitorTable.getEntry("/PV/Y");
+            est_pv_pose_h = MonitorTable.getEntry("/PV/Heading");
 
             // Network Table setup
-            nt_x_diff = MonitorTable.getEntry("vision_x_diff");
-            nt_y_diff = MonitorTable.getEntry("vision_y_diff");
-            nt_yaw_diff = MonitorTable.getEntry("vision_yaw_diff");
+            nt_x_diff = MonitorTable.getEntry("/compareLLOdo/diffX");
+            nt_y_diff = MonitorTable.getEntry("/compareLLOdo/diffY");
+            nt_yaw_diff = MonitorTable.getEntry("/compareLLOdo/diffHeading");
         }
 
         // Network Table Monitoring

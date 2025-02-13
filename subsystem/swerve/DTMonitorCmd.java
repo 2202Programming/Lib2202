@@ -46,9 +46,9 @@ public class DTMonitorCmd extends WatcherCmd {
   @Override
   public void ntcreate() {
     NetworkTable MonitorTable = getTable();
-    radiansPerSecond = MonitorTable.getEntry("vector w deg_p_sec");
-    xMetersPerSec = MonitorTable.getEntry("vector x ");
-    yMetersPerSec = MonitorTable.getEntry("vector y ");    
+    radiansPerSecond = MonitorTable.getEntry("Vrot");
+    xMetersPerSec = MonitorTable.getEntry("Vx ");
+    yMetersPerSec = MonitorTable.getEntry("Vy ");    
   }
 
   @Override
