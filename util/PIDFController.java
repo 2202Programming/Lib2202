@@ -31,19 +31,61 @@ public class PIDFController extends PIDController {
 
     double m_Kf = 0.0;
     
+    /**
+     * Construct a PIDF controller given the following gains.
+     * 
+     * When tuning a velocity PID, start with P, I and D all as 0 and f as 1/conversionFactor. 
+     * Then slowing increase f and setpoint until you have reasonable movement. 
+     * Adjust f such that when movement occurs, it is happening at the rate specified in engineered 
+     * units in the setpoint. Confirm this with glass or anothe plotting method
+     * 
+     * When tuning position PID, start with I and D at 0 and P at a small (0.1) value.
+     * Increase P until you get small oscillations, and set P to 0.6*value with oscillations.
+     * Optionally, add a small I if mechanism is having trouble getting to final position.
+     * 
+     * @param Kp proportional gain 
+     * @param Ki Integral gain
+     * @param Kd Derivative gain
+     * @param Kf Feed-Forward gain
+     * 
+     * @see edu.wpi.first.math.controller.PIDController#PIDController(double kp, double ki, double kd, double period)
+     * @see <a href="https://docs.revrobotics.com/revlib/spark/closed-loop/getting-started-with-pid-tuning">Getting Started With PID Tuning</a>
+     */
     public PIDFController(double Kp, double Ki, double Kd, double Kf) {
         this(Kp, Ki, Kd, Kf, DT);
     }
 
+    /**
+     * Construct a PIDF controller given the following gains.
+     * 
+     * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
+     * 
+     * @param Kp proportional gain 
+     * @param Ki Integral gain
+     * @param Kd Derivative gain
+     * @param Kf Feed-Forward gain
+     * @param period Default controller update rate
+     * 
+     */
     public PIDFController(double Kp, double Ki, double Kd, double Kf, double period) {
         super(Kp, Ki, Kd, period);
         setF(Kf);
     }
 
+    /**
+     * Construct a PIDF controller with the same Kp, Ki, Kd, Kf, and period as the supplied
+     * controller
+     * @param src The controller to source the PID gains from
+     * 
+     * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
+     */
     public PIDFController(PIDFController src) {
         this(src.getP(), src.getI(), src.getD(), src.getF(), src.getPeriod());
     }
 
+    /**
+     * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
+     */
     public void setPIDF(double kP, double kI, double kD, double kF) {
         setPID(kP, kI, kD);
         setF(kF);
