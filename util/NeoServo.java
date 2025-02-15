@@ -221,7 +221,26 @@ public class NeoServo implements VelocityControlled {
         return this;
     }
 
-    // methods to tune the servo very SmartMax Neo specific
+    // SmartMax Neo specific tuning methods
+    
+    /**
+     * Set motor's conversion factor.
+     * This is typically used to accomodate gearboxes and to allow control in "Engineered Units". 
+     * The position control will return rotations multiplied by the supplied conversion factor
+     * The velocity control will return rotations per second multiplied by the supplied conversion factor.
+     * 
+     * 
+     * For example a motor connected to a 45:1 reduction gearbox which rotates an arm in which the desired 
+     * control is degs/second should supply (45 * 1/360) as the conversion factor.
+     * Always leave the conversion factor unsimplified to avoid magic numbers and easy editing if one part
+     * of the mechanism changes.
+     * 
+     * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/alternateencoderconfig#positionConversionFactor(double)">positionConversionFactor(double)</a>
+     * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/alternateencoderconfig#velocityConversionFactor(double)">velocityConversionFactor(double)</a>
+     * 
+     * @param conversionFactor A double representing the conversion factor
+     * @return The modified NeoServo object for method chaining
+     */
     public NeoServo setConversionFactor(double conversionFactor) {
         if(mtrClass == SparkMax.class){
         ((SparkMaxConfig)ctrlCfg).alternateEncoder            
