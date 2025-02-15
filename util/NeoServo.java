@@ -18,6 +18,7 @@ import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.AlternateEncoderConfig.Type;
 import com.revrobotics.spark.config.ClosedLoopConfig.FeedbackSensor;
+import com.revrobotics.spark.config.EncoderConfig;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkFlexConfig;
 import com.revrobotics.spark.config.SparkBaseConfig;
@@ -229,30 +230,36 @@ public class NeoServo implements VelocityControlled {
      * The position control will return rotations multiplied by the supplied conversion factor
      * The velocity control will return rotations per second multiplied by the supplied conversion factor.
      * 
+     * position will be in engineered units like:  [deg] or [cm]
+     * velocity will be in [deg/s] or [cm/s]
      * 
      * For example a motor connected to a 45:1 reduction gearbox which rotates an arm in which the desired 
-     * control is degs/second should supply (45 * 1/360) as the conversion factor.
+     * control is degs/second should supply: (1/45)[rot-out]/rot-mtr](360 [deg/rot-out]) as the conversion factor.
+     * 
+     *      convFactor + 360.0/45.0 = 8.0 [deg/rot-mtr]
+     * 
      * Always leave the conversion factor unsimplified to avoid magic numbers and easy editing if one part
      * of the mechanism changes.
      * 
-     * @see com.revrobotics.spark.config.AlternateEncoderConfig#positionConversionFactor(double factor)
-     * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/alternateencoderconfig#positionConversionFactor(double)">positionConversionFactor(double)</a>
-     * @see com.revrobotics.spark.config.AlternateEncoderConfig#velocityConversionFactor(double factor)
-     * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/alternateencoderconfig#velocityConversionFactor(double)">velocityConversionFactor(double)</a>
+     * This is for the default internal encoder used in spareMax/flux. If an alternate or external encoder
+     * is needed use addAltPositionEncoder()  
+     * @see NeoServo.addAltPositionEncoder(Type encType, int CPR, double scale_rotations
+     * 
+     * @see com.revrobotics.spark.config.EncoderConfig#positionConversionFactor(double factor)
+     * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/encoderconfig#positionConversionFactor(double)"></a>
+     * @see com.revrobotics.spark.config.EncoderConfig#velocityConversionFactor(double factor)
+     * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/encoderconfig#velocityConversionFactor(double)"></a>
      * 
      * @param conversionFactor A double representing the conversion factor
      * @return The modified NeoServo object for method chaining
      */
     public NeoServo setConversionFactor(double conversionFactor) {
-        if(mtrClass == SparkMax.class){
-        ((SparkMaxConfig)ctrlCfg).alternateEncoder            
-            .positionConversionFactor(conversionFactor)
+        //use the normal internal encoder
+        EncoderConfig enc = (mtrClass == SparkMax.class) ?
+                    ((SparkMaxConfig)ctrlCfg).encoder  :
+                    ((SparkFlexConfig)ctrlCfg).encoder ;
+        enc .positionConversionFactor(conversionFactor)
             .velocityConversionFactor( conversionFactor / 60.0);
-        } else{
-            ((SparkFlexConfig)ctrlCfg).externalEncoder            
-            .positionConversionFactor(conversionFactor)
-            .velocityConversionFactor( conversionFactor / 60.0);
-        }
         ctrl.configure(ctrlCfg, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
         return this;
     }
