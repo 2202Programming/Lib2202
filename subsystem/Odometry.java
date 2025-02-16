@@ -66,12 +66,18 @@ public class Odometry extends SubsystemBase implements OdometryInterface {
     }
 
     // sets the pose and resets the odometry states and drivetrain positions
+    // and the gyro to match the pose Rotation2d
     @Override
     public void setPose(Pose2d newPose) {
         m_pose = newPose;
         // clear drivetrain position encoders
         drivetrain.setPositions(0.0);
         meas_pos = drivetrain.getSwerveModulePositions();
+
+        //field-centric drive uses just the gyro, so reset it too even though
+        //internal odometry doesn't require it. 
+        gyro.setHeading(m_pose.getRotation());
+        //use reset so internal odometry gyro-offset is reset
         odometry.resetPosition(gyro.getRotation2d(), meas_pos, m_pose);
     }
 
