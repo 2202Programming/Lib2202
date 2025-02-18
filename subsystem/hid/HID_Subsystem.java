@@ -359,7 +359,7 @@ static <T extends CommandGenericHID> T create_hid_device(Id port){
     // either return xbox or thrustmaster controller based on what the DS finds
     if (dev_type == 20) {
       return (T) new TMJoystickController(port.value);
-    } else if(dev_type == 255) {
+    } else if(dev_type == 255 || dev_type == 21) {
       return (T) new CommandPS4Controller(port.value);
     }
     // otherwise use xbox
