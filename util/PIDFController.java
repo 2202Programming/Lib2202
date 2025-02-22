@@ -261,23 +261,21 @@ public class PIDFController extends PIDController {
 
 
     private void NT_setup(){
-        // TODO: Switch to subtables
         table = NetworkTableInstance.getDefault().getTable(NT_Name);
 
         // Check if entry already exists
-        String testkey = "/" + m_name + " Current P";
-        while(table.containsKey(testkey)){
-            System.err.print("NetworkTable already exists for key `" + m_name + "`.");
+        while(table.containsSubTable(m_name)){
+            System.err.print("NetworkTable SubTable already exists for key `" + m_name + "`.");
+            System.err.println("!!Rename one of the " + m_name + " PIDF Objects!!");
             m_name = m_name + "-duplicate";
             System.err.println("Renaming to `" + m_name + "`");
-            System.err.println("!!Rename one of the " + testkey + " PIDF Objects!!");
-            testkey = "/" + m_name + " Current P";
         }
+        table = table.getSubTable(m_name);
 
-        nt_p = table.getEntry("/" + m_name + " Current P");
-        nt_i = table.getEntry("/" + m_name + " Current I");
-        nt_d = table.getEntry("/" + m_name + " Current D");
-        nt_f = table.getEntry("/" + m_name + " Current F");
+        nt_p = table.getEntry("/Current P");
+        nt_i = table.getEntry("/Current I");
+        nt_d = table.getEntry("/Current D");
+        nt_f = table.getEntry("/Current F");
 
         //set initial requested values to be current PIDF values
         nt_p.setDouble(getP());
@@ -286,13 +284,13 @@ public class PIDFController extends PIDController {
         nt_f.setDouble(getF());
 
         // Setup requested entries
-        nt_requested_p = table.getEntry("/" + m_name + " Requested P");
+        nt_requested_p = table.getEntry("/Requested P");
         nt_requested_p.setDouble(getP());
-        nt_requested_i = table.getEntry("/" + m_name + " Requested I");
+        nt_requested_i = table.getEntry("/Requested I");
         nt_requested_i.setDouble(getI());
-        nt_requested_d = table.getEntry("/" + m_name + " Requested D");
+        nt_requested_d = table.getEntry("/Requested D");
         nt_requested_d.setDouble(getD());
-        nt_requested_f = table.getEntry("/" + m_name + " Requested F");
+        nt_requested_f = table.getEntry("/Requested F");
         nt_requested_f.setDouble(getF());
     }
 
@@ -302,12 +300,6 @@ public class PIDFController extends PIDController {
         nt_i.setDouble(getI());
         nt_d.setDouble(getD());
         nt_f.setDouble(getF());
-
-        // Read requested values
-        nt_requested_p = table.getEntry("/" + m_name + " Requested P");
-        nt_requested_i = table.getEntry("/" + m_name + " Requested I");
-        nt_requested_d = table.getEntry("/" + m_name + " Requested D");
-        nt_requested_f = table.getEntry("/" + m_name + " Requested F");
 
         // check if requested values are different from current values, update if needed
         boolean updatePID = false;
