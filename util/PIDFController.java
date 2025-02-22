@@ -28,7 +28,7 @@ public class PIDFController extends PIDController {
     SparkClosedLoopController sparkMaxController = null;
     double m_smartMaxVel = 0.1;
     double m_smartMaxAccel = .01;
-    String m_name = "PIDFController";
+    String m_name = "Unamed_PIDFController"; // Name for NT entry if debugging
     double m_Kf = 0.0;
     
     private Boolean NT_enabled = false;
@@ -99,6 +99,7 @@ public class PIDFController extends PIDController {
 
     /**
      * Construct a PIDF controller with a name for network tables for tuning
+     * @param m_name String for PIDFController NT entries
      * 
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
      */
@@ -253,6 +254,7 @@ public class PIDFController extends PIDController {
     //TODO - add back for the CTRE controllers (find in older repo)
 
     private void NT_setup(){
+        // TODO: Check for a pre-existing table of the same name
         table = NetworkTableInstance.getDefault().getTable(NT_Name);
         nt_p = table.getEntry("/" + m_name + " Current P");
         nt_i = table.getEntry("/" + m_name + " Current I");
