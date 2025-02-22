@@ -2,6 +2,9 @@ package frc.lib2202.util;
 
 import static frc.lib2202.Constants.DT;
 
+import java.time.Period;
+import java.time.format.TextStyle;
+
 import com.revrobotics.REVLibError;
 import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.SparkBase;
@@ -11,6 +14,9 @@ import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.config.SparkBaseConfig;
 
 import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.util.sendable.SendableBuilder;
 
 /**
@@ -104,7 +110,7 @@ public class PIDFController extends PIDController {
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
      */
     public PIDFController(double Kp, double Ki, double Kd, double Kf, String m_name) {
-        this(src.getP(), src.getI(), src.getD(), src.getF(), src.getPeriod());
+        this(Kp, Ki, Kd, DT);
         this.m_name = m_name;
         NT_enabled = true;
         NT_setup();
@@ -253,40 +259,86 @@ public class PIDFController extends PIDController {
 
     //TODO - add back for the CTRE controllers (find in older repo)
 
+
     private void NT_setup(){
-        // TODO: Check for a pre-existing table of the same name
+        // TODO: Switch to subtables
         table = NetworkTableInstance.getDefault().getTable(NT_Name);
+
+        // Check if entry already exists
+        String testkey = "/" + m_name + " Current P";
+        while(table.containsKey(testkey)){
+            System.err.print("NetworkTable already exists for key `" + m_name + "`.");
+            m_name = m_name + "-duplicate";
+            System.err.println("Renaming to `" + m_name + "`");
+            System.err.println("!!Rename one of the " + testkey + " PIDF Objects!!");
+            testkey = "/" + m_name + " Current P";
+        }
+
         nt_p = table.getEntry("/" + m_name + " Current P");
         nt_i = table.getEntry("/" + m_name + " Current I");
         nt_d = table.getEntry("/" + m_name + " Current D");
         nt_f = table.getEntry("/" + m_name + " Current F");
 
         //set initial requested values to be current PIDF values
-        nt_requested_p = table.getEntry("/" + m_name + " Requested P", getP());
-        nt_requested_i = table.getEntry("/" + m_name + " Requested I", getI());
-        nt_requested_d = table.getEntry("/" + m_name + " Requested D", getD());
-        nt_requested_f = table.getEntry("/" + m_name + " Requested F", getF());
-    }
-
-    private void NT_update(){
         nt_p.setDouble(getP());
         nt_i.setDouble(getI());
         nt_d.setDouble(getD());
         nt_f.setDouble(getF());
 
+        // Setup requested entries
+        nt_requested_p = table.getEntry("/" + m_name + " Requested P");
+        nt_requested_p.setDouble(getP());
+        nt_requested_i = table.getEntry("/" + m_name + " Requested I");
+        nt_requested_i.setDouble(getI());
+        nt_requested_d = table.getEntry("/" + m_name + " Requested D");
+        nt_requested_d.setDouble(getD());
+        nt_requested_f = table.getEntry("/" + m_name + " Requested F");
+        nt_requested_f.setDouble(getF());
+    }
+
+    private void NT_update(){
+        // Update readout values
+        nt_p.setDouble(getP());
+        nt_i.setDouble(getI());
+        nt_d.setDouble(getD());
+        nt_f.setDouble(getF());
+
+        // Read requested values
         nt_requested_p = table.getEntry("/" + m_name + " Requested P");
         nt_requested_i = table.getEntry("/" + m_name + " Requested I");
         nt_requested_d = table.getEntry("/" + m_name + " Requested D");
         nt_requested_f = table.getEntry("/" + m_name + " Requested F");
 
         // check if requested values are different from current values, update if needed
-        if ((getP() != nt_requested_p) ||
-            (getI() != nt_requested_i) ||
-            (getD() != nt_requested_d) ||
-            (getF() != nt_requested_f)) 
-            {
+        boolean updatePID = false;
+        // Validate P
+        if(nt_requested_p.getDouble(-1) > 0){
+            System.err.print("Invalid P value. Must be a positive double");
+        }else if (nt_requested_p.getDouble(-1) != getP()){
+            updatePID = true;
+        }
+        // Validate I
+        if(nt_requested_i.getDouble(-1) > 0){
+            System.err.print("Invalid I value. Must be a positive double");
+        }else if (nt_requested_i.getDouble(-1) != getI()){
+            updatePID = true;
+        }
+        // Validate D
+        if(nt_requested_d.getDouble(-1) > 0){
+            System.err.print("Invalid D value. Must be a positive double");
+        }else if (nt_requested_d.getDouble(-1) != getD()){
+            updatePID = true;
+        }
+        // Validate F
+        if(nt_requested_f.getDouble(Double.MIN_VALUE) != Double.MIN_VALUE){
+            System.err.print("Invalid FF value. Must be a double");
+        }else if (nt_requested_f.getDouble(Double.MIN_VALUE) != getF()){
+            updatePID = true;
+        }
+
+        if (updatePID){
             System.out.println(m_name + ": Updating PIDF values to requested values");
-            setPIDF(nt_requested_p, nt_requested_i, nt_requested_d, nt_requested_f);
+            setPIDF(nt_requested_p.getDouble(getP()), nt_requested_i.getDouble(getI()), nt_requested_d.getDouble(getD()), nt_requested_f.getDouble(getF()));
         }
     }
 }
