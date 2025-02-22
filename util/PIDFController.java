@@ -34,7 +34,7 @@ public class PIDFController extends PIDController {
     SparkClosedLoopController sparkMaxController = null;
     double m_smartMaxVel = 0.1;
     double m_smartMaxAccel = .01;
-    String m_name = "Unamed_PIDFController"; // Name for NT entry if debugging
+    final String m_name; // NT methods are not setup to handle name changes
     double m_Kf = 0.0;
     
     private Boolean NT_enabled = false;
@@ -107,10 +107,25 @@ public class PIDFController extends PIDController {
      * Construct a PIDF controller with a name for network tables for tuning
      * @param m_name String for PIDFController NT entries
      * 
-     * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
+     * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
      */
     public PIDFController(double Kp, double Ki, double Kd, double Kf, String m_name) {
         this(Kp, Ki, Kd, DT);
+        setF(Kf);
+        this.m_name = m_name;
+        NT_enabled = true;
+        NT_setup();
+    }
+
+    /**
+     * Construct a PIDF controller with a name for network tables for tuning
+     * @param m_name String for PIDFController NT entries
+     * 
+     * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
+     */
+    public PIDFController(double Kp, double Ki, double Kd, double Kf, double period, String m_name) {
+        super(Kp, Ki, Kd, period);
+        setF(Kf);
         this.m_name = m_name;
         NT_enabled = true;
         NT_setup();
@@ -131,6 +146,10 @@ public class PIDFController extends PIDController {
 
     public void setF(double Kf) {
         m_Kf = Kf;
+    }
+
+    public String getName(){
+        return m_name;
     }
     
     /**
@@ -260,6 +279,12 @@ public class PIDFController extends PIDController {
     //TODO - add back for the CTRE controllers (find in older repo)
 
 
+    /**
+     * NT_setup()
+     * 
+     * Set up NetworkTables for PIDF gain settings. This is a debug feature to allow adjustment of
+     * gains without rebuilding and redeploying code. Enabled if the name param is set
+     */
     private void NT_setup(){
         table = NetworkTableInstance.getDefault().getTable(NT_Name);
 
