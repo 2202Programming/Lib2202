@@ -290,7 +290,7 @@ public class PIDFController extends PIDController {
 
         // Check if entry already exists
         while(table.containsSubTable(m_name)){
-            System.err.print("NetworkTable SubTable already exists for key `" + m_name + "`.");
+            System.err.println("NetworkTable SubTable already exists for key `" + m_name + "`.");
             System.err.println("!!Rename one of the " + m_name + " PIDF Objects!!");
             m_name = m_name + "-duplicate";
             System.err.println("Renaming to `" + m_name + "`");
