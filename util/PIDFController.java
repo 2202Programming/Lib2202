@@ -28,9 +28,23 @@ public class PIDFController extends PIDController {
     SparkClosedLoopController sparkMaxController = null;
     double m_smartMaxVel = 0.1;
     double m_smartMaxAccel = .01;
-
+    String m_name = "PIDFController";
     double m_Kf = 0.0;
     
+    private Boolean NT_enabled = false;
+    private NetworkTable table;
+    private NetworkTableEntry nt_p;
+    private NetworkTableEntry nt_i;
+    private NetworkTableEntry nt_d;
+    private NetworkTableEntry nt_f;
+
+    private NetworkTableEntry nt_requested_p;
+    private NetworkTableEntry nt_requested_i;
+    private NetworkTableEntry nt_requested_d;
+    private NetworkTableEntry nt_requested_f;
+
+    public final String NT_Name = "PIDF"; // expose data under PIDF table
+
     /**
      * Construct a PIDF controller given the following gains.
      * 
@@ -84,6 +98,18 @@ public class PIDFController extends PIDController {
     }
 
     /**
+     * Construct a PIDF controller with a name for network tables for tuning
+     * 
+     * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
+     */
+    public PIDFController(double Kp, double Ki, double Kd, double Kf, String m_name) {
+        this(src.getP(), src.getI(), src.getD(), src.getF(), src.getPeriod());
+        this.m_name = m_name;
+        NT_enabled = true;
+        NT_setup();
+    }
+
+    /**
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
      */
     public void setPIDF(double kP, double kI, double kD, double kF) {
@@ -108,6 +134,9 @@ public class PIDFController extends PIDController {
      */
     @Override
     public double calculate(double measurement, double setpoint) {
+        if (NT_enabled) {
+            NT_update();
+        }
         return super.calculate(measurement, setpoint) + (m_Kf * setpoint);
     }
 
@@ -223,4 +252,39 @@ public class PIDFController extends PIDController {
 
     //TODO - add back for the CTRE controllers (find in older repo)
 
+    private void NT_setup(){
+        table = NetworkTableInstance.getDefault().getTable(NT_Name);
+        nt_p = table.getEntry("/" + m_name + " Current P");
+        nt_i = table.getEntry("/" + m_name + " Current I");
+        nt_d = table.getEntry("/" + m_name + " Current D");
+        nt_f = table.getEntry("/" + m_name + " Current F");
+
+        //set initial requested values to be current PIDF values
+        nt_requested_p = table.getEntry("/" + m_name + " Requested P", getP());
+        nt_requested_i = table.getEntry("/" + m_name + " Requested I", getI());
+        nt_requested_d = table.getEntry("/" + m_name + " Requested D", getD());
+        nt_requested_f = table.getEntry("/" + m_name + " Requested F", getF());
+    }
+
+    private void NT_update(){
+        nt_p.setDouble(getP());
+        nt_i.setDouble(getI());
+        nt_d.setDouble(getD());
+        nt_f.setDouble(getF());
+
+        nt_requested_p = table.getEntry("/" + m_name + " Requested P");
+        nt_requested_i = table.getEntry("/" + m_name + " Requested I");
+        nt_requested_d = table.getEntry("/" + m_name + " Requested D");
+        nt_requested_f = table.getEntry("/" + m_name + " Requested F");
+
+        // check if requested values are different from current values, update if needed
+        if ((getP() != nt_requested_p) ||
+            (getI() != nt_requested_i) ||
+            (getD() != nt_requested_d) ||
+            (getF() != nt_requested_f)) 
+            {
+            System.out.println(m_name + ": Updating PIDF values to requested values");
+            setPIDF(nt_requested_p, nt_requested_i, nt_requested_d, nt_requested_f);
+        }
+    }
 }
