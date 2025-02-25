@@ -264,6 +264,14 @@ public class NeoServo implements VelocityControlled {
         return this;
     }
 
+    /**
+     * Set the motor's positional and velocity tolerance. If SetConversionFactor() was called, 
+     * this will be in engineering units
+     * 
+     * @param posTol motor's positional tolerance in engineering units
+     * @param velTol motor's velocity tolerance in engineering units
+     * @return The modified NeoServo object for method chaining
+     */
     public NeoServo setTolerance(double posTol, double velTol) {
         positionPID.setTolerance(posTol, velTol);
         return this;
@@ -293,9 +301,14 @@ public class NeoServo implements VelocityControlled {
         return this;
     }
 
-    // defers to setMaxVel(), but returns this for config chaining
+    /**
+     * Sets the motor controller's max velocity in both directions.
+     * Units are in engineering units if setConversionFactor() was called 
+     * @param maxVelocity maximum motor velocity in engineering units
+     * @return this NeoServo to facilitate chaining
+     */
     public NeoServo setMaxVelocity(double maxVelocity) {
-        // defer to the VelocityControlled API
+        // defers to setMaxVel() VelocityControlled API, but returns this for config chaining
         setMaxVel(maxVelocity);
         return this;
     }
