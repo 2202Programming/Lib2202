@@ -2,9 +2,6 @@ package frc.lib2202.util;
 
 import static frc.lib2202.Constants.DT;
 
-import java.time.Period;
-import java.time.format.TextStyle;
-
 import com.revrobotics.REVLibError;
 import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.SparkBase;
@@ -34,7 +31,7 @@ public class PIDFController extends PIDController {
     SparkClosedLoopController sparkMaxController = null;
     double m_smartMaxVel = 0.1;
     double m_smartMaxAccel = .01;
-    final String m_name; // NT methods are not setup to handle name changes
+    String m_name = "";          // can't be final, but NT setup deferred until we have a name
     double m_Kf = 0.0;
     
     private Boolean NT_enabled = false;
@@ -72,7 +69,7 @@ public class PIDFController extends PIDController {
      * @see <a href="https://docs.revrobotics.com/revlib/spark/closed-loop/getting-started-with-pid-tuning">Getting Started With PID Tuning</a>
      */
     public PIDFController(double Kp, double Ki, double Kd, double Kf) {
-        this(Kp, Ki, Kd, Kf, DT);
+        this(Kp, Ki, Kd, Kf, DT,"");
     }
 
     /**
@@ -88,8 +85,7 @@ public class PIDFController extends PIDController {
      * 
      */
     public PIDFController(double Kp, double Ki, double Kd, double Kf, double period) {
-        super(Kp, Ki, Kd, period);
-        setF(Kf);
+        this(Kp, Ki, Kd, Kf, period, "");
     }
 
     /**
@@ -100,7 +96,7 @@ public class PIDFController extends PIDController {
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
      */
     public PIDFController(PIDFController src) {
-        this(src.getP(), src.getI(), src.getD(), src.getF(), src.getPeriod());
+        this(src.getP(), src.getI(), src.getD(), src.getF(), src.getPeriod(), src.m_name+"_copied");
     }
 
     /**
@@ -110,11 +106,7 @@ public class PIDFController extends PIDController {
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
      */
     public PIDFController(double Kp, double Ki, double Kd, double Kf, String m_name) {
-        this(Kp, Ki, Kd, DT);
-        setF(Kf);
-        this.m_name = m_name;
-        NT_enabled = true;
-        NT_setup();
+        this(Kp, Ki, Kd, Kf, DT, m_name);
     }
 
     /**
@@ -126,9 +118,7 @@ public class PIDFController extends PIDController {
     public PIDFController(double Kp, double Ki, double Kd, double Kf, double period, String m_name) {
         super(Kp, Ki, Kd, period);
         setF(Kf);
-        this.m_name = m_name;
-        NT_enabled = true;
-        NT_setup();
+        setName(m_name);       
     }
 
     /**
@@ -152,6 +142,19 @@ public class PIDFController extends PIDController {
         return m_name;
     }
     
+    public void setName(String m_name) {
+        //skip if we don't have a name yet
+        if (m_name.equals("")) return;
+        
+        // allow name change only of NT wasn't setup
+        if (this.m_name.equals("")) {
+            this.m_name = m_name;
+            // initialize NT
+            NT_setup();
+            NT_enabled = true;
+        }
+    }
+
     /**
      * Returns the next output of the PID controller.
      *
