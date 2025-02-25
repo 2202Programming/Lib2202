@@ -2,6 +2,9 @@ package frc.lib2202.util;
 
 import static frc.lib2202.Constants.DT;
 
+import java.time.Period;
+import java.time.format.TextStyle;
+
 import com.revrobotics.REVLibError;
 import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.SparkBase;
@@ -11,6 +14,9 @@ import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.config.SparkBaseConfig;
 
 import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.util.sendable.SendableBuilder;
 
 /**
@@ -28,9 +34,23 @@ public class PIDFController extends PIDController {
     SparkClosedLoopController sparkMaxController = null;
     double m_smartMaxVel = 0.1;
     double m_smartMaxAccel = .01;
-
+    final String m_name; // NT methods are not setup to handle name changes
     double m_Kf = 0.0;
     
+    private Boolean NT_enabled = false;
+    private NetworkTable table;
+    private NetworkTableEntry nt_p;
+    private NetworkTableEntry nt_i;
+    private NetworkTableEntry nt_d;
+    private NetworkTableEntry nt_f;
+
+    private NetworkTableEntry nt_requested_p;
+    private NetworkTableEntry nt_requested_i;
+    private NetworkTableEntry nt_requested_d;
+    private NetworkTableEntry nt_requested_f;
+
+    public final String NT_Name = "PIDF"; // expose data under PIDF table
+
     /**
      * Construct a PIDF controller given the following gains.
      * 
@@ -84,6 +104,34 @@ public class PIDFController extends PIDController {
     }
 
     /**
+     * Construct a PIDF controller with a name for network tables for tuning
+     * @param m_name String for PIDFController NT entries
+     * 
+     * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
+     */
+    public PIDFController(double Kp, double Ki, double Kd, double Kf, String m_name) {
+        this(Kp, Ki, Kd, DT);
+        setF(Kf);
+        this.m_name = m_name;
+        NT_enabled = true;
+        NT_setup();
+    }
+
+    /**
+     * Construct a PIDF controller with a name for network tables for tuning
+     * @param m_name String for PIDFController NT entries
+     * 
+     * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
+     */
+    public PIDFController(double Kp, double Ki, double Kd, double Kf, double period, String m_name) {
+        super(Kp, Ki, Kd, period);
+        setF(Kf);
+        this.m_name = m_name;
+        NT_enabled = true;
+        NT_setup();
+    }
+
+    /**
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
      */
     public void setPIDF(double kP, double kI, double kD, double kF) {
@@ -99,6 +147,10 @@ public class PIDFController extends PIDController {
     public void setF(double Kf) {
         m_Kf = Kf;
     }
+
+    public String getName(){
+        return m_name;
+    }
     
     /**
      * Returns the next output of the PID controller.
@@ -108,6 +160,9 @@ public class PIDFController extends PIDController {
      */
     @Override
     public double calculate(double measurement, double setpoint) {
+        if (NT_enabled) {
+            NT_update();
+        }
         return super.calculate(measurement, setpoint) + (m_Kf * setpoint);
     }
 
@@ -223,4 +278,84 @@ public class PIDFController extends PIDController {
 
     //TODO - add back for the CTRE controllers (find in older repo)
 
+
+    /**
+     * NT_setup()
+     * 
+     * Set up NetworkTables for PIDF gain settings. This is a debug feature to allow adjustment of
+     * gains without rebuilding and redeploying code. Enabled if the name param is set
+     */
+    private void NT_setup(){
+        table = NetworkTableInstance.getDefault().getTable(NT_Name);
+
+        // Check if entry already exists
+        while(table.containsSubTable(m_name)){
+            System.err.println("NetworkTable SubTable already exists for key `" + m_name + "`.");
+            System.err.println("!!Rename one of the " + m_name + " PIDF Objects!!");
+            m_name = m_name + "-duplicate";
+            System.err.println("Renaming to `" + m_name + "`");
+        }
+        table = table.getSubTable(m_name);
+
+        nt_p = table.getEntry("/Current P");
+        nt_i = table.getEntry("/Current I");
+        nt_d = table.getEntry("/Current D");
+        nt_f = table.getEntry("/Current F");
+
+        //set initial requested values to be current PIDF values
+        nt_p.setDouble(getP());
+        nt_i.setDouble(getI());
+        nt_d.setDouble(getD());
+        nt_f.setDouble(getF());
+
+        // Setup requested entries
+        nt_requested_p = table.getEntry("/Requested P");
+        nt_requested_p.setDouble(getP());
+        nt_requested_i = table.getEntry("/Requested I");
+        nt_requested_i.setDouble(getI());
+        nt_requested_d = table.getEntry("/Requested D");
+        nt_requested_d.setDouble(getD());
+        nt_requested_f = table.getEntry("/Requested F");
+        nt_requested_f.setDouble(getF());
+    }
+
+    private void NT_update(){
+        // Update readout values
+        nt_p.setDouble(getP());
+        nt_i.setDouble(getI());
+        nt_d.setDouble(getD());
+        nt_f.setDouble(getF());
+
+        // check if requested values are different from current values, update if needed
+        boolean updatePID = false;
+        // Validate P
+        if(nt_requested_p.getDouble(-1) > 0){
+            System.err.print("Invalid P value. Must be a positive double");
+        }else if (nt_requested_p.getDouble(-1) != getP()){
+            updatePID = true;
+        }
+        // Validate I
+        if(nt_requested_i.getDouble(-1) > 0){
+            System.err.print("Invalid I value. Must be a positive double");
+        }else if (nt_requested_i.getDouble(-1) != getI()){
+            updatePID = true;
+        }
+        // Validate D
+        if(nt_requested_d.getDouble(-1) > 0){
+            System.err.print("Invalid D value. Must be a positive double");
+        }else if (nt_requested_d.getDouble(-1) != getD()){
+            updatePID = true;
+        }
+        // Validate F
+        if(nt_requested_f.getDouble(Double.MIN_VALUE) != Double.MIN_VALUE){
+            System.err.print("Invalid FF value. Must be a double");
+        }else if (nt_requested_f.getDouble(Double.MIN_VALUE) != getF()){
+            updatePID = true;
+        }
+
+        if (updatePID){
+            System.out.println(m_name + ": Updating PIDF values to requested values");
+            setPIDF(nt_requested_p.getDouble(getP()), nt_requested_i.getDouble(getI()), nt_requested_d.getDouble(getD()), nt_requested_f.getDouble(getF()));
+        }
+    }
 }
