@@ -7,7 +7,9 @@ import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
-import com.revrobotics.spark.SparkClosedLoopController;
+import com.revrobotics.spark.SparkFlex;
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.config.ClosedLoopConfigAccessor;
 import com.revrobotics.spark.config.SparkBaseConfig;
 
 import edu.wpi.first.math.controller.PIDController;
@@ -27,8 +29,10 @@ import edu.wpi.first.util.sendable.SendableBuilder;
  * 
  */
 public class PIDFController extends PIDController {
-    // hardware refs if used
-    SparkClosedLoopController sparkMaxController = null;
+    // hardware refs if used, set by first copyTo()
+    SparkBase hw_controller = null;
+    SparkBaseConfig hw_config = null;
+
     double m_smartMaxVel = 0.1;
     double m_smartMaxAccel = .01;
     String m_name = "";          // can't be final, but NT setup deferred until we have a name
@@ -95,9 +99,9 @@ public class PIDFController extends PIDController {
      * 
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
      */
-    public PIDFController(PIDFController src) {
-        this(src.getP(), src.getI(), src.getD(), src.getF(), src.getPeriod(), src.m_name+"_copied");
-    }
+    // public PIDFController(PIDFController src) {
+    //     this(src.getP(), src.getI(), src.getD(), src.getF(), src.getPeriod(), src.m_name+"_copied");
+    // }
 
     /**
      * Construct a PIDF controller with a name for network tables for tuning
@@ -150,8 +154,7 @@ public class PIDFController extends PIDController {
         if (this.m_name.equals("")) {
             this.m_name = m_name;
             // initialize NT
-            NT_setup();
-            NT_enabled = true;
+            NT_setup();           
         }
     }
 
@@ -163,9 +166,6 @@ public class PIDFController extends PIDController {
      */
     @Override
     public double calculate(double measurement, double setpoint) {
-        if (NT_enabled) {
-            NT_update();
-        }
         return super.calculate(measurement, setpoint) + (m_Kf * setpoint);
     }
 
@@ -190,7 +190,8 @@ public class PIDFController extends PIDController {
     }
 
     public boolean equals(PIDFController other) {
-        return getP() == other.getP() && getI() == other.getI() && getD() == other.getD() && getF() == other.getF();
+        return getP() == other.getP() && getI() == other.getI() && 
+              getD() == other.getD() && getF() == other.getF();
     }
 
     /**
@@ -230,55 +231,71 @@ public class PIDFController extends PIDController {
 
         REVLibError driveError = motorController.configure(motorConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
         
+        //save hw references for later use in 
+        if (hw_controller == null) hw_controller = motorController;
+        if (hw_config == null) hw_config = motorConfig;
+
         if(driveError != REVLibError.kOk)
-        System.out.println("*** ERROR *** SparkMax Flash Failed during copyTo command. Error val=" + driveError);
+            System.out.println("*** ERROR *** SparkMax Flash Failed during copyTo command. Error val=" + driveError);
     }
 
-    public void copyChangesTo(SparkBase controller, SparkBaseConfig motorConfig, PIDFController updated) {
-        copyChangesTo(controller, motorConfig, ClosedLoopSlot.kSlot0, updated);
+    public void copyChangesTo(SparkBase controller, SparkBaseConfig motorConfig) {
+        copyChangesTo(controller, motorConfig, ClosedLoopSlot.kSlot0);
     }
 
     // compares an updated PIDF with this one and updates it and the hardware
-    public void copyChangesTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot, PIDFController updated) {
+    public void copyChangesTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot) {
         boolean changed = false;
+
+        // skip if no hw, typical if use PIDF without calling copyTo()
+        if (motorConfig == null || motorController == null) return;
+
         var pidCfg =  motorConfig.closedLoop;
 
-        // update pid values that have changed
-        if (getP() != updated.getP()) {
-            setP(updated.getP());
+        //accessor lets us get the pid values in the motorController
+        ClosedLoopConfigAccessor pid_acc = (motorController instanceof SparkMax) ?
+            ((SparkMax)motorController).configAccessor.closedLoop :
+            ((SparkFlex)motorController).configAccessor.closedLoop;
+        
+        // compare PIDF values with acc, update pidCfg values that have changed
+        if (compare(getP() ,pid_acc.getP()) ) {            
             pidCfg.p(getP(), slot);
             changed = true;
         }
 
-        if (getI() != updated.getI()) {
-            setI(updated.getI());
+        if (compare(getI(), pid_acc.getI())) {
             pidCfg.i(getI(), slot);
             changed = true;
         }
 
-        if (getD() != updated.getD()) {
-            setD(updated.getD());
+        if (compare(getD(), pid_acc.getD())) {
             pidCfg.d(getD(), slot);
             changed = true;
         }
 
-        if (getF() != updated.getF()) {
-            setF(updated.getF());
+        if (compare(getF(), pid_acc.getFF())) {      
             pidCfg.velocityFF(getF(), slot);
             changed = true;
         }
 
-        if (getIZone() != updated.getIZone()) {
-            setIZone(updated.getIZone());
+        if (compare(getIZone(), pid_acc.getIZone())) {           
             pidCfg.iZone(getIZone(), slot);
             changed = true;
         }
-
+        // send to HW if we have a pid change, use async so robot loop isn't delayed
         if (changed) {
             motorController.configureAsync(motorConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);                
         }
     }
 
+    /*
+     * doubles between pidf and the controller won't match exactly
+     * so limit the number of bits compared on the diff.
+     */
+    boolean compare(double x1, Double x2) {
+        double diff = Math.abs(x1 - x2)*100000.0; // 5 sig digits
+        return diff > 0.01;
+    }
     //TODO - add back for the CTRE controllers (find in older repo)
 
 
@@ -320,9 +337,14 @@ public class PIDFController extends PIDController {
         nt_requested_d.setDouble(getD());
         nt_requested_f = table.getEntry("/Requested F");
         nt_requested_f.setDouble(getF());
+        
+        NT_enabled = true;
     }
 
-    private void NT_update(){
+    public void NT_update() {
+        // skip if not setup
+        if (!NT_enabled) return;
+
         // Update readout values
         nt_p.setDouble(getP());
         nt_i.setDouble(getI());
@@ -332,33 +354,39 @@ public class PIDFController extends PIDController {
         // check if requested values are different from current values, update if needed
         boolean updatePID = false;
         // Validate P
-        if(nt_requested_p.getDouble(-1) > 0){
-            System.err.print("Invalid P value. Must be a positive double");
+        if (nt_requested_p.getDouble(-1) < 0.0) {
+            System.err.print("Invalid P value. Must be a positive double\n");
         }else if (nt_requested_p.getDouble(-1) != getP()){
             updatePID = true;
         }
         // Validate I
-        if(nt_requested_i.getDouble(-1) > 0){
-            System.err.print("Invalid I value. Must be a positive double");
+        if(nt_requested_i.getDouble(-1) < 0.0) {
+            System.err.print("Invalid I value. Must be a positive double\n");
         }else if (nt_requested_i.getDouble(-1) != getI()){
             updatePID = true;
         }
         // Validate D
-        if(nt_requested_d.getDouble(-1) > 0){
-            System.err.print("Invalid D value. Must be a positive double");
+        if(nt_requested_d.getDouble(-1) < 0.0) {
+            System.err.print("Invalid D value. Must be a positive double\n");
         }else if (nt_requested_d.getDouble(-1) != getD()){
             updatePID = true;
         }
         // Validate F
-        if(nt_requested_f.getDouble(Double.MIN_VALUE) != Double.MIN_VALUE){
-            System.err.print("Invalid FF value. Must be a double");
+        if(nt_requested_f.getDouble(-1) < 0.0) {
+            System.err.print("Invalid FF value. Must be a double\n");
         }else if (nt_requested_f.getDouble(Double.MIN_VALUE) != getF()){
             updatePID = true;
         }
 
         if (updatePID){
             System.out.println(m_name + ": Updating PIDF values to requested values");
-            setPIDF(nt_requested_p.getDouble(getP()), nt_requested_i.getDouble(getI()), nt_requested_d.getDouble(getD()), nt_requested_f.getDouble(getF()));
+            setPIDF(nt_requested_p.getDouble(getP()), 
+                    nt_requested_i.getDouble(getI()), 
+                    nt_requested_d.getDouble(getD()), 
+                    nt_requested_f.getDouble(getF()));
+            
+            // copy values to hw
+            copyChangesTo(hw_controller, hw_config);
         }
     }
 }

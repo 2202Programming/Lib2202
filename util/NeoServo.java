@@ -62,7 +62,6 @@ public class NeoServo implements VelocityControlled {
     // state vars
     final PIDController positionPID;
     final public PIDFController hwVelPIDcfg; // matches hardware setting
-    final PIDFController prevVelPIDcfg; // soft copy to edit /w NT and compare with hwVelPIDcfg
     final ClosedLoopSlot hwVelSlot;
 
     // hardware
@@ -127,7 +126,6 @@ public class NeoServo implements VelocityControlled {
         this.positionPID = positionPID;
         this.hwVelSlot = hwVelSlot;
         this.hwVelPIDcfg = hwVelPIDcfg;
-        this.prevVelPIDcfg = new PIDFController(hwVelPIDcfg);
         
         //Setup pid on hardware with give config and full output range
         this.hwVelPIDcfg.copyTo(ctrl, ctrlCfg, this.hwVelSlot); 
@@ -526,7 +524,7 @@ public class NeoServo implements VelocityControlled {
             nt_trim = table.getEntry("Trim");
 
             // put the a copy on dashboard to edit
-            SmartDashboard.putData(name + "/hwVelPIDcfg", prevVelPIDcfg);
+            SmartDashboard.putData(name + "/hwVelPIDcfg", hwVelPIDcfg);
         }
 
         @Override
@@ -539,7 +537,7 @@ public class NeoServo implements VelocityControlled {
             nt_trim.setDouble(trim);
 
             // look for PIDF config changes
-            hwVelPIDcfg.copyChangesTo(ctrl, ctrlCfg, hwVelSlot, prevVelPIDcfg);
+            hwVelPIDcfg.copyChangesTo(ctrl, ctrlCfg, hwVelSlot);
         }
     }
 
