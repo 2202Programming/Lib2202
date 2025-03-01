@@ -12,7 +12,15 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
-
+/*
+ * 
+ * @deprecated - use MoveToPose(), does same thing but has better error handling
+ * and constraint handling. Also handles interrupt of command.
+ * Folllows class naming conventions too.
+ * 
+ *  {@link #MoveToPose()} instead.
+ */
+@Deprecated
 public class driveToPose extends Command {
 
   private Pose2d targetPose;
