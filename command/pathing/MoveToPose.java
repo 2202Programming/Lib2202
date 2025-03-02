@@ -59,7 +59,7 @@ public class MoveToPose extends Command {
     // odometry must be configured AND setup in AutoBuilder 
     sdt = RobotContainer.getSubsystem("drivetrain");
     odo = RobotContainer.getSubsystemOrNull(odoName);
-    addRequirements(sdt);
+    //addRequirements(sdt); this command doesn't need the requirement, but the one generated does
   }
 
   //use the RobotSpecs' RobotLimits, and RampTime above to create path constaints
@@ -85,6 +85,7 @@ public class MoveToPose extends Command {
 
     //compute path to point, run it.
     pathfindingCommand = AutoBuilder.pathfindToPose(targetPose, constraints,0.0);  
+    pathfindingCommand.addRequirements(sdt);
     pathfindingCommand.schedule();
   }
 
@@ -92,13 +93,20 @@ public class MoveToPose extends Command {
   @Override
   public void end(boolean interrupted) {
     if (interrupted) {
-      pathfindingCommand.cancel();
+      if (pathfindingCommand.isScheduled())  
+        pathfindingCommand.cancel();
     }
   }
 
   // Returns true when the command should end.
   @Override
   public boolean isFinished() {
+    //not ready yet?? There can be a race where MoveToPose is created and used externally 
+    // to schedule and have it's isFinished checked, but the pathFindingCmd isn't completed yet.
+    // This protects and gives time to finish the pathfinding/scheduling.
+    if (pathfindingCommand == null) 
+      return false;
+
     return pathfindingCommand.isFinished();
   }
  
