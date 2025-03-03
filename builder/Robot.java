@@ -15,14 +15,18 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
 public class Robot extends TimedRobot {
   private Command m_autonomousCommand;
   private RobotContainer m_robotContainer;
+  private IRobotSpec m_IRobotSpec;
 
   @Override
   public void robotInit() {
     m_robotContainer = new RobotContainer();
+    m_IRobotSpec = RobotContainer.getRobotSpecs();
   }
 
   @Override
   public void robotPeriodic() {
+    // call our robot spec's periodic
+    m_IRobotSpec.periodic();
     CommandScheduler.getInstance().run();
   }
 
@@ -61,7 +65,7 @@ public class Robot extends TimedRobot {
       m_autonomousCommand.cancel();
     }
     // call any robot spec'd teleOpInit needed by the bot.
-    RobotContainer.getRobotSpecs().teleopInit();
+    m_IRobotSpec.teleopInit();
   }
 
   @Override

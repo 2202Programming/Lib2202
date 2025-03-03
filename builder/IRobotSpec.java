@@ -37,4 +37,6 @@ public interface IRobotSpec {
 
     default public void teleopInit(){}
 
+    default public void periodic() {}
+
 }
