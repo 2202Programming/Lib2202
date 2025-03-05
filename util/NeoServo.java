@@ -46,18 +46,19 @@ public class NeoServo implements VelocityControlled {
     boolean velocity_mode = false;
     double trim = 0.0; // offset from the commanded position (not seen in measured)
     double MIN_POS = -500.0, MAX_POS = 500.0; // PLEASE SET YOUR CLAMP VALUES
-
-    // safety checks
-    int NO_MOTION_FRAMES = 10;
-
+   
     // measured values
     double currentPos;
     double currentVel;
 
     // safety checks on servo movement
     int safety_frame_count = 0;
-    final int WARNING_MSG_FRAMES = 100;
-    int warning_count = 0; // limits warning msg to once every N frames
+    final int WARNING_MSG_FRAMES = 250;  // every 5 seconds, warn about stall
+    int warning_count = 0; 
+    
+    int NO_MOTION_FRAMES = 25;           // 0.5 seconds
+    double stall_limit_current = 60.0;   //track output current limit for stall protection
+    int prev_direction = 0;             // 0 no stall, otherwise sign of velocity
 
     // state vars
     final PIDController positionPID;
@@ -281,6 +282,8 @@ public class NeoServo implements VelocityControlled {
     }
 
     public NeoServo setSmartCurrentLimit(int stallLimit, int freeLimit, int rpmLimit) {
+        // save stall current limit derated for stall check
+        this.stall_limit_current = stallLimit*0.95;
         ctrlCfg.smartCurrentLimit(stallLimit, freeLimit, rpmLimit);
         ctrl.configure(ctrlCfg, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
         return this;
@@ -425,14 +428,18 @@ public class NeoServo implements VelocityControlled {
      *  true => servo is stalled for N frames or more, cut the motor in periodic()
      */
     boolean isStalled() {
-        boolean not_moving = (Math.abs(velocity_cmd) > positionPID.getErrorDerivativeTolerance()) && // motion requested
-                (Math.abs(currentVel) < positionPID.getErrorDerivativeTolerance()) && // motion not seen
-                (!positionPID.atSetpoint()) &&
-                (DriverStation.isEnabled()); // is enabled
-
-        // count frames we aren't moving
+        int direction = (int)Math.copySign(1.0, velocity_cmd);
+        // check stall conditions
+        boolean not_moving = 
+                (Math.abs(velocity_cmd) > positionPID.getErrorDerivativeTolerance()) && // motion requested
+                (Math.abs(currentVel) < positionPID.getErrorDerivativeTolerance()) &&   // motion not seen
+                (!positionPID.atSetpoint()) &&          // not at our goal
+                (prev_direction == direction) &&        // still trying to move in same direction
+                (ctrl.getOutputCurrent() * ctrl.getAppliedOutput() > stall_limit_current) && // drawing high current                          
+                (DriverStation.isEnabled());            // is enabled
+        
         safety_frame_count = not_moving ? ++safety_frame_count : 0;
-
+        prev_direction = direction;
         return safety_frame_count > NO_MOTION_FRAMES;
     }
 
@@ -468,18 +475,21 @@ public class NeoServo implements VelocityControlled {
         if (isStalled()) {
             // issue stall warning, but not every frame
             if ((warning_count++ % WARNING_MSG_FRAMES) == 0) {
-                DriverStation.reportError(name + " servo stalled at pos=" + currentPos +
-                        " set point=" + positionPID.getSetpoint() +
-                        " velocity_cmd=" + velocity_cmd +
-                        " measured_vel=" + currentVel, false);
-                // stalled for NO_MOTION_FRAMES frames, stop trying to move
-                setSetpoint(currentPos); // stay where we are
-                velocity_cmd = 0.0;
-                arbFF = 0.0;
-            } else {
-                // moving, clear the warning counter
-                warning_count = 0;
+                DriverStation.reportError(name + " servo stalled at\n" +
+                    "  pos          =" + currentPos + "\n" +
+                    "  set point    =" + positionPID.getSetpoint() + "\n" +
+                    "  velocity_cmd =" + velocity_cmd + "\n" +
+                    "  measured_vel =" + currentVel +  "\n" +
+                    "  current      =" + ctrl.getOutputCurrent() + "\n" +
+                    "  appliedOutput=" + ctrl.getAppliedOutput() + "\n\n", false);
             }
+            // stalled for NO_MOTION_FRAMES frames, stop trying to move                
+            velocity_cmd = 0.0;
+            arbFF = 0.0;             
+        }
+        else {
+            // moving, clear the warning counter
+            warning_count = 0;
         }
         // potential use of feedforward
         pid.setReference(velocity_cmd, ControlType.kVelocity, hwVelSlot, arbFF, ArbFFUnits.kPercentOut);
