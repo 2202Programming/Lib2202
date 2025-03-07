@@ -50,7 +50,7 @@ public class FieldCentricDrive extends Command {
 
   @Override
   public void initialize() {
-     SmartDashboard.putBoolean("FieldCentricDrive Enabled", true);
+     SmartDashboard.putBoolean("DriveFieldCentric", true);
   }
 
   void calculate() {
@@ -83,6 +83,7 @@ public class FieldCentricDrive extends Command {
   @Override
   public void end(boolean interrupted) {
     drivetrain.stop();
+    SmartDashboard.putBoolean("DriveFieldCentric", false);
   }
 
 }

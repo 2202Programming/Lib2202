@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.command.WatcherCmd;
+import frc.lib2202.command.swerve.AllianceAwareGyroReset;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.subsystem.swerve.IHeadingProvider;
 import frc.lib2202.util.VisionWatchdog;
@@ -165,6 +166,8 @@ public class VisionPoseEstimator extends SubsystemBase implements OdometryInterf
             var pose = limelight.getBluePose();
             var ts = limelight.getVisionTimestamp();
             m_estimator.addVisionMeasurement(pose, ts);
+            if (watchdog != null)
+                watchdog.update(pose, prev_llPose);
         }
         return m_estimator.update(gyro.getRotation2d(), meas_pos);       
     }
@@ -191,7 +194,9 @@ public class VisionPoseEstimator extends SubsystemBase implements OdometryInterf
         }
     }
 
-
+    public void configureGyroCallback(){
+        AllianceAwareGyroReset.AddCallback(this::setAnglePose);
+    }
     
     /** 
      * @return Pose2d

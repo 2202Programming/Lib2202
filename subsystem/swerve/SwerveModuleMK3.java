@@ -313,6 +313,9 @@ public class SwerveModuleMK3 {
     // set measured_position and encoder to new position.
     m_position = position;
     driveEncoder.setPosition(position);
+    
+    // sim workaround 
+    simSetDrivePosition(position);
   }
 
   /**
@@ -401,31 +404,49 @@ public class SwerveModuleMK3 {
     driveMotorPID.setReference(state.speedMetersPerSecond, ControlType.kVelocity);
   }
 
-  SparkSim driveSim;
-  SparkSim angleSim;
+  SparkSim driveSim = null;
+  SparkSim angleSim = null;
   final double ANGLE_SLEW_RATE = 180.0; // [deg/s]
 
   public void simulationInit(){
     if (this.mType == SparkMax.class) {
-      DCMotor sim_drive_mtr =  DCMotor.getNeo550(1);
-      DCMotor sim_angle_mtr = DCMotor.getNeo550(1);
-      driveSim = new SparkMaxSim( ((SparkMax)driveMotor), sim_drive_mtr );
-      angleSim = new SparkMaxSim( ((SparkMax)driveMotor), sim_angle_mtr );      
-    } else {
       DCMotor sim_drive_mtr =  DCMotor.getNEO(1);
+      DCMotor sim_angle_mtr = DCMotor.getNEO(1);
+      driveSim = new SparkMaxSim( ((SparkMax)driveMotor), sim_drive_mtr );
+      angleSim = new SparkMaxSim( ((SparkMax)angleMotor), sim_angle_mtr );      
+    } else {
+      DCMotor sim_drive_mtr =  DCMotor.getNeoVortex(1);
       DCMotor sim_angle_mtr = DCMotor.getNeoVortex(1);
       driveSim = new SparkFlexSim( ((SparkFlex)driveMotor), sim_drive_mtr );
-      angleSim = new SparkFlexSim( ((SparkFlex)driveMotor), sim_angle_mtr );   
+      angleSim = new SparkFlexSim( ((SparkFlex)angleMotor), sim_angle_mtr );   
     }
   }
 
   public void simulationPeriodic() {
-    double delta = ModMath.delta360(m_angle_target, m_internalAngle) / Constants.DT;
-    double angle_dot = Math.copySign(MathUtil.clamp(Math.abs(delta), 0.0, ANGLE_SLEW_RATE), delta);
-    driveSim.iterate(m_vel_target, 12.0, Constants.DT );
-    angleSim.iterate(angle_dot, 12.0, Constants.DT );
+    double angleKp = cc.anglePIDF.getP();
+    double delta = ModMath.delta360(m_angle_target, m_internalAngle);
+    //wip
+    @SuppressWarnings("unused")
+    double angle_dot = angleKp * angleCmdInvert *
+                       Math.copySign(MathUtil.clamp(Math.abs(delta), 0.0, ANGLE_SLEW_RATE), delta);
+
+    if (this.mType == SparkMax.class) {
+      driveSim.iterate(m_vel_target, 12.0, Constants.DT );
+      //angleSim.iterate(angle_dot, 12.0, Constants.DT );
+      angleSim.setPosition(m_internalAngle + delta);
+    } else {
+      ((SparkFlexSim)driveSim).iterate(m_vel_target, 12.0, Constants.DT );
+      //angleSim.iterate(angle_dot, 12.0, Constants.DT );
+      ((SparkFlexSim)angleSim).setPosition(m_internalAngle + delta);
+    }
   }
 
+  // THIS IS A WORKAROUND
+  // I think the encoder's setPosition() should do this
+  void simSetDrivePosition(double position) {
+    if (driveSim == null) return;   // 
+    driveSim.setPosition(position);
+  }
 
 
 

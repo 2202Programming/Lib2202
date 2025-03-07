@@ -218,16 +218,25 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     }
   }
 
-  
-
+  static boolean simInit = false;
+  // simple model for testing
   public void simulationInit() {
-    // WIP placeholder
-    // motor/inertia models
+    for (int i = 0; i < modules.length; i++) {
+      modules[i].simulationInit();
+    }
   }
 
   @Override
   public void simulationPeriodic() {
-    // WIP
+    if (!simInit) {
+      simulationInit();
+      simInit = true;
+    }
+    for (int i = 0; i < modules.length; i++) {
+      modules[i].simulationPeriodic();
+    }
+
+
   }
 
   //set all module positions to given position [m].
