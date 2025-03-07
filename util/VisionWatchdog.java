@@ -20,7 +20,7 @@ public class VisionWatchdog {
     private NetworkTableEntry nt_diffY;
     private NetworkTableEntry nt_updateInterval;
     
-    public final String NT_Name = "Vision"; // expose data under Vision table
+    public final String NT_Name = "VisionWatchdog"; // expose data under Vision table
 
     /* VisionWatchdog tracks time since it's last update was called, and only prints if the time interval has been longer than defined
      * Prevents hammering prints for every vision update

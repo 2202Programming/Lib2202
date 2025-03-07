@@ -5,13 +5,13 @@ import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.FieldObject2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.builder.RobotContainer;
@@ -20,26 +20,24 @@ import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.subsystem.swerve.IHeadingProvider;
 import frc.lib2202.util.VisionWatchdog;
 
-// Swerve Drive Train (SDT) must be created before Swerve-PoseEstimator
+// Swerve Drive Train (drivetrain) must be created before Swerve-PoseEstimator
 
-public class VisionPoseEstimator extends SubsystemBase // TODO implements OdometryInterface or extends Odometry
+public class VisionPoseEstimator extends SubsystemBase implements OdometryInterface
 {
     // set true if we found everything needed, otherwise this system is disabled
     final boolean correct_config;
 
     // This connects us to whatever gyro is being used for robot heading, configured
     // in RobotSpecs
-    final IHeadingProvider sensors;
-    final DriveTrainInterface sdt; // must be lib2022 version
-    final OdometryInterface m_odometry; // read-only here, updated in sdt
-    final SwerveDriveKinematics kinematics; // const matrix based on chassis geometry, get from SDT
-    SwerveModulePosition[] meas_pos; // provided by sdt
+    final IHeadingProvider gyro;
+    final DriveTrainInterface drivetrain;  
+    final OdometryInterface m_odometry;    // read-only here, updated in drivetrain
+    final SwerveDriveKinematics kinematics; // const matrix based on chassis geometry, get from drivetrain
+    SwerveModulePosition[] meas_pos; // provided by drivetrain
 
-    Pose2d m_pose;  //based on odometry
-    Pose2d old_pose;
+    Pose2d m_odoPose;  //based on odometry
 
     final VisionWatchdog watchdog;
-    final double kTimeoffset; // typical ~= .1; // [s] measurement delay from photonvis
     final BaseLimelight limelight;
 
     // Bearing calcs (TBD)
@@ -53,10 +51,10 @@ public class VisionPoseEstimator extends SubsystemBase // TODO implements Odomet
     //private LinearFilter bearingFilter = LinearFilter.singlePoleIIR(0.1, Constants.DT);
     //private LinearFilter velocityFilter = LinearFilter.singlePoleIIR(0.1, Constants.DT);
 
-    boolean visionPoseUsingRotation = true; // read from sdt.useVisionRotation()
+    boolean visionPoseUsingRotation = true; // read from drivetrain.useVisionRotation()
     boolean visionPoseEnabled = true;
 
-    SwerveDrivePoseEstimator m_poseEstimator_ll;
+    final SwerveDrivePoseEstimator m_estimator;
     // monitor diffs in ll and odometry poses
     private double x_diff; // [m]
     private double y_diff; // [m]
@@ -65,142 +63,124 @@ public class VisionPoseEstimator extends SubsystemBase // TODO implements Odomet
     //vision systems limelight and photonvision(TBD)
     private Pose2d llPose;
     private Pose2d prev_llPose;
-    private Pose2d pvPose = null; // TBD
 
     // field estimate based on vision estimate llPose
     public final Field2d m_field;
+    final FieldObject2d m_field_obj;
+    final String m_ll_name;
+    String altName;
 
     // no-args ctor, default timings
     public VisionPoseEstimator() {
-        this(   0.1, 3.0, "limelight"); // typical settings
+        this(3.0, "limelight"); // typical settings
     }
     // no-args ctor, default timings
     public VisionPoseEstimator(String limelightName) {
-        this(   0.1, 3.0, limelightName); // typical settings
+        this(3.0, limelightName); // typical settings
     }
 
-    public VisionPoseEstimator(double kTimeoffset, double watchdog_interval, String limelightName) {
-        this.kTimeoffset = kTimeoffset;
+    public VisionPoseEstimator(double watchdog_interval, String limelightName) {
         watchdog = new VisionWatchdog(watchdog_interval);
         m_field = new Field2d();
+        m_ll_name = limelightName;
+        m_field_obj = m_field.getObject("VPE_" + m_ll_name);
 
         // other subsystems
-        sdt = RobotContainer.getSubsystemOrNull("drivetrain");
+        drivetrain = RobotContainer.getSubsystemOrNull("drivetrain");
         m_odometry = RobotContainer.getSubsystemOrNull("odometry");
-        sensors = RobotContainer.getRobotSpecs().getHeadingProvider();
+        gyro = RobotContainer.getRobotSpecs().getHeadingProvider();
         limelight = RobotContainer.getSubsystemOrNull(limelightName);
 
+        altName = limelight.getName();  //debug
+
         // confirm config is correct
-        correct_config = sdt != null && sensors != null && 
+        correct_config = drivetrain != null && gyro != null && 
                          limelight != null && m_odometry != null;
 
-        if (sdt != null && m_odometry != null) {
-            kinematics = sdt.getKinematics();
-            meas_pos = sdt.getSwerveModulePositions();            
-            m_pose = m_odometry.getPose();
+        if (drivetrain != null && m_odometry != null) {
+            kinematics = drivetrain.getKinematics();
+            meas_pos = drivetrain.getSwerveModulePositions();            
+            m_odoPose = m_odometry.getPose();
         } else {
-            // no sdt, set the sdt related final vars
+            // no drivetrain, set the drivetrain related final vars
             kinematics = null;
-            m_pose = new Pose2d();
-            meas_pos = new SwerveModulePosition[] {
-                    new SwerveModulePosition(), new SwerveModulePosition(),
-                    new SwerveModulePosition(), new SwerveModulePosition()
-            };
+            m_odoPose = new Pose2d();
+            meas_pos = null;
         }
-        // Estimators
-        initializeEstimator();
-        // start the network monitor
-        this.new VisionPoseEstimatorMonitorCmd();
+        
+        //set initial values to odometry based m_odoPose
+        llPose = prev_llPose = m_odoPose;
+        
+        if (correct_config) {
+            // Estimators
+            m_estimator = initializeEstimator();
+            // start the network monitor
+            this.new VisionPoseEstimatorMonitorCmd();
+        }
+        else {
+            m_estimator = null;
+        }
     } // ctor
 
     @Override
     public void periodic() {
-        if (!correct_config)
-            return;
+        if (!correct_config) return;
 
-        m_pose = m_odometry.getPose();
-        updateEstimator(); //sets llPose
-        
-        // apply llPose to robot position subject any constraints like velocity or distance 
-        useEstimate();
-        m_field.setRobotPose(llPose);
+        m_odoPose = m_odometry.getPose();
+        meas_pos = drivetrain.getSwerveModulePositions();
+        llPose = updateEstimator();
+        m_field_obj.setPose(llPose);
 
-        // compare llPose and odometry pose 
-       
-        x_diff = Math.abs(llPose.getX() - m_pose.getX());
-        y_diff = Math.abs(llPose.getY() - m_pose.getY());
-        yaw_diff = Math.abs(llPose.getRotation().getDegrees() - m_pose.getRotation().getDegrees());
+        // compare llPose and odometry pose for reporting       
+        x_diff = Math.abs(llPose.getX() - m_odoPose.getX());
+        y_diff = Math.abs(llPose.getY() - m_odoPose.getY());
+        yaw_diff = Math.abs(llPose.getRotation().getDegrees() - m_odoPose.getRotation().getDegrees());
     }
 
     // helper functions
-    void initializeEstimator() {
+    SwerveDrivePoseEstimator initializeEstimator() {
         /*
-         * Here we use SwerveDrivePoseEstimator so that we can fuse odometry readings.
+         * Here we create SwerveDrivePoseEstimator so that we can fuse odometry readings.
          * The numbers used below are robot specific, and should be tuned.
          * 
          * TODO - add PID config to RobotSpecs
+         * TODO - std seem really high for vision, esp the heading
          */
-        m_poseEstimator_ll = new SwerveDrivePoseEstimator(
+        var estimator = new SwerveDrivePoseEstimator(
                 kinematics,
-                sensors.getRotation2d(),
-                meas_pos,
-                m_pose, // was new Pose2d(), // initial pose () - dpl 1/2/2025 
-                VecBuilder.fill(0.05, 0.05, Units.degreesToRadians(5)), // std x,y, heading from odmetry
-                VecBuilder.fill(0.5, 0.5, Units.degreesToRadians(30))); // std x, y heading from vision
-
-        //set initial values to odometry based m_pose
-        llPose = prev_llPose = m_pose;
-        // photon vision- TBD
-        /*
-         * m_poseEstimator_pv = new SwerveDrivePoseEstimator(
-         * kinematics,
-         * sensors.getRotation2d(),
-         * meas_pos,
-         * m_pose, // was new Pose2d(), // initial pose () - dpl 1/2/2025
-         * VecBuilder.fill(0.05, 0.05, Units.degreesToRadians(5)), // std x,y, heading
-         * from odmetry
-         * VecBuilder.fill(0.5, 0.5, Units.degreesToRadians(30))); // std x, y heading
-         * from vision
-         */
+                gyro.getRotation2d(),
+                this.meas_pos,
+                this.m_odoPose, 
+                VecBuilder.fill(0.05, 0.05, Units.degreesToRadians(5)), // std x,y, heading from odmetry [m,deg]
+                VecBuilder.fill(0.5, 0.5, Units.degreesToRadians(30))); // std x, y heading from vision [m, deg]
+        return estimator;
     }
 
     /** Updates the field relative position of the robot. */
-    void updateEstimator() {
-        // Limelight update
-        // this should happen every robot cycle, regardless of vision targets.
-        m_poseEstimator_ll.update(sensors.getRotation2d(), meas_pos); // gyro and sdt position
-        
-        // TODO - check on timestamp references, focus on initialization t=0 maybe
-        // global clock should be used
-
-         // dpl modules[0] was used as proxy for robot speed, replace with field speed^2.
-         ChassisSpeeds field_speed = sdt.getFieldRelativeSpeeds();
-         double v2 = field_speed.vxMetersPerSecond * field_speed.vxMetersPerSecond +
-                 field_speed.vyMetersPerSecond * field_speed.vyMetersPerSecond;
- 
-        // only apply ll measurements if we have tags, quality, and not moving too fast (2.5m/s)
-        if (limelight.getNumApriltags() > 0 && //make sure at least 1 tag is in view
-            //limelight.getTA() > 0.13 && //JR I don't think we want this here, the limelight is also filtering this out on it's end
-            Math.abs(v2) < (2.5 * 2.5)) { //don't use vision if moving too fast - might be better in limelight 3G
-            // this should happen only if we have a tag in view
-            // OK if it is run only intermittanly. Uses latency of vision pose.
-            m_poseEstimator_ll.addVisionMeasurement(limelight.getBluePose(), limelight.getVisionTimestamp());
-        }
-        // dpl - moved out of tag check, should be able to get estimate each frame even
-        // without a tag based update.
+    Pose2d updateEstimator() {
         prev_llPose = llPose;
-        llPose = m_poseEstimator_ll.getEstimatedPosition();
+        // let limelight sub-system decide if we are good to use estimate
+        // OK if it is run only intermittanly. Uses latency of vision pose.
+        if (limelight.valid()) { //make sure at least 1 tag is in view
+            var pose = limelight.getBluePose();
+            var ts = limelight.getVisionTimestamp();
+            m_estimator.addVisionMeasurement(pose, ts);
+        }
+        return m_estimator.update(gyro.getRotation2d(), meas_pos);       
     }
 
-    //set sdt's pose if it's enabled
+    //set drivetrain's pose if it's enabled
+    // This couples odometry by forcing it to take the LL pose.
+    // really we are incorporating the odometry measurements into the LLPoseEstimator.
+    // Should be able to have pathing users take this estimator's pose
+    @Deprecated
     void useEstimate() {
         visionPoseUsingRotation = m_odometry.useVisionRotation();
         visionPoseEnabled = m_odometry.useVisionPose();
         
-        Rotation2d current_rotation = m_pose.getRotation();
-        if (visionPoseEnabled) {
-            //TODO - dpl 1/2/2025 is watchdog needed???
-            watchdog.update(llPose, prev_llPose);
+        Rotation2d current_rotation = m_odoPose.getRotation();
+        if (visionPoseEnabled) {           
+            if(watchdog != null) watchdog.update(llPose, prev_llPose);
             if (visionPoseUsingRotation) {
                 // update robot pose, include vision-based rotation
                 m_odometry.setPose(llPose);
@@ -211,46 +191,58 @@ public class VisionPoseEstimator extends SubsystemBase // TODO implements Odomet
         }
     }
 
+
+    
+    /** 
+     * @return Pose2d
+     */
     // Public API
 
-    // force to visionEstimator's pose to given one, restart estimators
-    public void initializeVisionPose(Pose2d pose) {
-        m_pose = pose;
-        old_pose = pose;
-        // reset estimators, uses m_pose just set
-        initializeEstimator();
-        // keep our vision pose estimators up to date
-        if (limelight != null) {
-            limelight.setInitialPose(pose, 0.0);
-        }
-    }
-
-    public Pose2d getVisionPose() {
-        return llPose;
-    }
-
     public void printVisionPose() {
-        System.out.println("***VisionPose X:" + llPose.getX() +
-            ", Y:" + llPose.getY() + ", Rot:" + llPose.getRotation().getDegrees());
-    }
-
-   
-    public Pose2d getLLEstimate() {
-        return llPose;
-    }
-
-    public Pose2d getPVEstimate() {
-        return pvPose;
+        System.out.println("***VisionPose\n  X:" + llPose.getX() +
+            "\n  Y:" + llPose.getY() + "\n  Rot:" + llPose.getRotation().getDegrees());
     }
 
     public double getDistanceToTranslation(Translation2d targetTranslation) {
-        // TODO - should this be sdt or llpose?
         return Math.sqrt(
-                Math.pow(m_odometry.getPose().getTranslation().getX() - targetTranslation.getX(), 2.0)
-                        + Math.pow(m_odometry.getPose().getTranslation().getY() - targetTranslation.getY(), 2.0));
+            Math.pow(llPose.getX() - targetTranslation.getX(), 2.0) +
+            Math.pow(llPose.getY() - targetTranslation.getY(), 2.0));
+    }
+    
+    @Override
+    public void setPose(Pose2d newPose) {
+        m_odoPose = newPose;
+        // set everything to new pose
+        gyro.setHeading(m_odoPose.getRotation()); 
+        m_odometry.setPose(m_odoPose);
+        
+        // drive positions could be cleare, re-read them
+        meas_pos = drivetrain.getSwerveModulePositions();
+        // set our estimators new pose with current drivetrains wheel meas_pos
+        m_estimator.resetPosition(gyro.getHeading(), meas_pos, m_odoPose);
+        llPose = m_estimator.getEstimatedPosition();  //note - llpose should be same 
+    }
+    
+    @Override
+    public void setAnglePose(Rotation2d rot) {
+        setPose(new Pose2d(m_odoPose.getTranslation(), rot));
+    }
+    @Override
+    public Pose2d getPose() {
+        return llPose;
+    }
+    @Override
+    public void printPose() {
+        System.out.println("***VisionPoseEstimator " + m_ll_name + " X:" + llPose.getX() +
+        ", Y:" + llPose.getY() +
+        ", Rot:" + llPose.getRotation().getDegrees());
+    }
+    @Override
+    public SwerveDriveKinematics getKinematics() {
+        return kinematics;
     }
 
-    
+
     /*
      * Watcher for SwervePoseEstimator and its vision data.
      *
@@ -289,9 +281,9 @@ public class VisionPoseEstimator extends SubsystemBase // TODO implements Odomet
             est_ll_pose_y = MonitorTable.getEntry("/LL/Y");
             est_ll_pose_h = MonitorTable.getEntry("/LL/Heading");
 
-            est_pv_pose_x = MonitorTable.getEntry("/PV/X");
-            est_pv_pose_y = MonitorTable.getEntry("/PV/Y");
-            est_pv_pose_h = MonitorTable.getEntry("/PV/Heading");
+            //est_pv_pose_x = MonitorTable.getEntry("/PV/X");
+            //est_pv_pose_y = MonitorTable.getEntry("/PV/Y");
+            //est_pv_pose_h = MonitorTable.getEntry("/PV/Heading");
 
             // Network Table setup
             nt_x_diff = MonitorTable.getEntry("/compareLLOdo/diffX");
@@ -304,18 +296,15 @@ public class VisionPoseEstimator extends SubsystemBase // TODO implements Odomet
         public void ntupdate() {
             SmartDashboard.putData("Field_vision", m_field);
 
-            ll_pose = getLLEstimate();
-            pv_pose = getPVEstimate();
-
             if (ll_pose != null) {
                 est_ll_pose_x.setDouble(ll_pose.getX());
                 est_ll_pose_y.setDouble(ll_pose.getY());
                 est_ll_pose_h.setDouble(ll_pose.getRotation().getDegrees());
             }
             if (pv_pose != null) {
-                est_pv_pose_x.setDouble(pv_pose.getX());
-                est_pv_pose_y.setDouble(pv_pose.getY());
-                est_pv_pose_h.setDouble(pv_pose.getRotation().getDegrees());
+            //    est_pv_pose_x.setDouble(pv_pose.getX());
+            //    est_pv_pose_y.setDouble(pv_pose.getY());
+            //    est_pv_pose_h.setDouble(pv_pose.getRotation().getDegrees());
             }
 
             // vision pose updating NTs

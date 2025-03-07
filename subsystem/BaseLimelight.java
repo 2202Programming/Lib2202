@@ -215,7 +215,7 @@ public abstract class BaseLimelight extends SubsystemBase {
     }
 
     public boolean valid() {
-        return targetValid;  //TODO doesn't seem like this was set right -dpl
+        return targetValid; // set in periodic() of derrived class
     }
 
     public void log() {

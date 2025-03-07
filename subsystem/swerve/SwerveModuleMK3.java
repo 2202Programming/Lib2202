@@ -14,19 +14,25 @@ import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkSim;
 import com.revrobotics.REVLibError;
 import com.revrobotics.RelativeEncoder;
+import com.revrobotics.sim.SparkFlexSim;
+import com.revrobotics.sim.SparkMaxSim;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkFlex;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.units.BaseUnits;
 import edu.wpi.first.units.measure.Angle;
+import frc.lib2202.Constants;
 import frc.lib2202.builder.IRobotSpec;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.builder.RobotLimits;
@@ -138,16 +144,8 @@ public class SwerveModuleMK3 {
 
     // cc is the chassis config for all our pathing math
     cc = specs.getChassisConfig();
-
-    /********************* not needed with new lib2025 
-    // Always restore factory defaults at least once for new sparks - it removes gremlins
-    driveMotor.restoreFactoryDefaults(specs.burnFlash());
-    sleep(specs.burnFlash() ? 1000 : 0); // only need if flash is true
-    angleMotor.restoreFactoryDefaults(specs.burnFlash());
-    sleep(specs.burnFlash() ? 1000 : 0); // only need if flash is true
-      *********************************/
     
-      // account for command sign differences if needed
+    // account for command sign differences if needed
     angleCmdInvert = (invertAngleCmd) ? -1.0 : 1.0;
     
     driveCfg = (mType == SparkMax.class) ? new SparkMaxConfig() : new SparkFlexConfig();
@@ -310,10 +308,6 @@ public class SwerveModuleMK3 {
     }
   }
 
-  public void simulationPeriodic() {
-
-  }
-
   // driveEncoder position 
   public void setPosition(double position){
     // set measured_position and encoder to new position.
@@ -406,6 +400,34 @@ public class SwerveModuleMK3 {
     // use velocity control
     driveMotorPID.setReference(state.speedMetersPerSecond, ControlType.kVelocity);
   }
+
+  SparkSim driveSim;
+  SparkSim angleSim;
+  final double ANGLE_SLEW_RATE = 180.0; // [deg/s]
+
+  public void simulationInit(){
+    if (this.mType == SparkMax.class) {
+      DCMotor sim_drive_mtr =  DCMotor.getNeo550(1);
+      DCMotor sim_angle_mtr = DCMotor.getNeo550(1);
+      driveSim = new SparkMaxSim( ((SparkMax)driveMotor), sim_drive_mtr );
+      angleSim = new SparkMaxSim( ((SparkMax)driveMotor), sim_angle_mtr );      
+    } else {
+      DCMotor sim_drive_mtr =  DCMotor.getNEO(1);
+      DCMotor sim_angle_mtr = DCMotor.getNeoVortex(1);
+      driveSim = new SparkFlexSim( ((SparkFlex)driveMotor), sim_drive_mtr );
+      angleSim = new SparkFlexSim( ((SparkFlex)driveMotor), sim_angle_mtr );   
+    }
+  }
+
+  public void simulationPeriodic() {
+    double delta = ModMath.delta360(m_angle_target, m_internalAngle) / Constants.DT;
+    double angle_dot = Math.copySign(MathUtil.clamp(Math.abs(delta), 0.0, ANGLE_SLEW_RATE), delta);
+    driveSim.iterate(m_vel_target, 12.0, Constants.DT );
+    angleSim.iterate(angle_dot, 12.0, Constants.DT );
+  }
+
+
+
 
   /**
    * Network Tables data
