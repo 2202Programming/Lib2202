@@ -1,5 +1,6 @@
 package frc.lib2202.subsystem;
 
+import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -7,9 +8,12 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
+import edu.wpi.first.math.numbers.N1;
+import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.FieldObject2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -40,6 +44,8 @@ public class VisionPoseEstimator extends SubsystemBase implements OdometryInterf
 
     final VisionWatchdog watchdog;
     final BaseLimelight limelight;
+
+    Matrix<N3, N1> visionMeasurementStdDevs = new Matrix<N3, N1>(N3.instance, N1.instance);
 
     // Bearing calcs (TBD)
     // private double currentBearing = 0;
@@ -152,8 +158,8 @@ public class VisionPoseEstimator extends SubsystemBase implements OdometryInterf
                 gyro.getRotation2d(),
                 this.meas_pos,
                 this.m_odoPose, 
-                VecBuilder.fill(0.05, 0.05, Units.degreesToRadians(5)), // std x,y, heading from odmetry [m,deg]
-                VecBuilder.fill(0.5, 0.5, Units.degreesToRadians(30))); // std x, y heading from vision [m, deg]
+                VecBuilder.fill(0.05, 0.05, Units.degreesToRadians(2)), // std x,y, heading from odmetry [m,deg]  5
+                VecBuilder.fill(0.5, 0.5, Units.degreesToRadians(10))); // std x, y heading from vision [m, deg] 30
         return estimator;
     }
 
@@ -165,6 +171,13 @@ public class VisionPoseEstimator extends SubsystemBase implements OdometryInterf
         if (limelight.valid()) { //make sure at least 1 tag is in view
             var pose = limelight.getBluePose();
             var ts = limelight.getVisionTimestamp();
+            
+            //wip use ll stddevs to adjust vision measurments
+            double[] stddevs = getStddevs();
+            visionMeasurementStdDevs.set(0, 0, stddevs[6]);   //mt2 x
+            visionMeasurementStdDevs.set(0, 0, stddevs[7]);   //mt2 y
+            visionMeasurementStdDevs.set(0, 0, stddevs[8]);   //mt2 deg
+
             m_estimator.addVisionMeasurement(pose, ts);
             if (watchdog != null)
                 watchdog.update(pose, prev_llPose);
@@ -198,6 +211,15 @@ public class VisionPoseEstimator extends SubsystemBase implements OdometryInterf
         AllianceAwareGyroReset.AddCallback(this::setAnglePose);
     }
     
+    
+    // see if we can get the LL stddevs for mt1[0..5] and mt2[6..11]
+    double[] default_stddevs = new double[12];
+    public double[] getStddevs() {
+        return 
+            NetworkTableInstance.getDefault().getTable(m_ll_name)
+                .getEntry("stddevs").getDoubleArray(default_stddevs);
+      }
+
     /** 
      * @return Pose2d
      */
