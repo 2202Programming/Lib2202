@@ -22,6 +22,8 @@ public abstract class BaseLimelight extends SubsystemBase {
     protected NetworkTableEntry NT_hasTarget;
     protected NetworkTableEntry nt_bluepose_x;
     protected NetworkTableEntry nt_bluepose_y;
+    protected NetworkTableEntry nt_rejectUpdate;
+ 
     protected NetworkTableEntry outputTx;
     protected NetworkTableEntry outputTv;
     protected NetworkTableEntry pipelineNTE;
@@ -62,6 +64,7 @@ public abstract class BaseLimelight extends SubsystemBase {
     protected Pose2d bluePose = new Pose2d();
     protected int numAprilTags;
     protected double visionTimestamp;
+    protected boolean rejectUpdate;
 
     protected String name;  //name of LL, to support multiple LL
 
@@ -80,9 +83,12 @@ public abstract class BaseLimelight extends SubsystemBase {
         nt_bluepose_x = outputTable.getEntry("/LL Blue Pose X");
         nt_bluepose_y = outputTable.getEntry("/LL Blue Pose Y");
         nt_numApriltags = outputTable.getEntry("/LL_Num_Apriltag");
+        nt_rejectUpdate = outputTable.getEntry("/LL RejectUpdate");
+
         NT_hasTarget = outputTable.getEntry("/LL hasTarget");
         outputTv = outputTable.getEntry("/Limelight Valid");
         outputTx = outputTable.getEntry("/Limelight X error");
+
         distanceToTargetTag = outputTable.getEntry("/Distance To TargetTag");
         disableLED();
     }
@@ -218,25 +224,26 @@ public abstract class BaseLimelight extends SubsystemBase {
         return targetValid; // set in periodic() of derrived class
     }
 
-    public void log() {
-        
-        if (log_counter % FRAME_MOD == 0) {
-            NT_hasTarget.setBoolean(targetValid);
-
-            if (bluePose != null) {
-                nt_bluepose_x.setDouble(bluePose.getX());
-                nt_bluepose_y.setDouble(bluePose.getY());
-            }
-
-            outputTv.setValue(targetValid);
-            outputTx.setDouble(x);
-
-            if (targetTag != null && targetID > 0) {
-                distanceToTargetTag
-                        .setDouble(((OdometryInterface)RobotContainer.getSubsystem("odometry")).getDistanceToTranslation(targetTag));
-            }
-        }
-        log_counter++;
+    public boolean getRejectUpdate() {
+        return rejectUpdate;    // set in periodic() of derrived class
     }
+     
+    public void log() {
+        NT_hasTarget.setBoolean(targetValid);
+        nt_rejectUpdate.setBoolean(getRejectUpdate());
 
+        if (bluePose != null) {
+            nt_bluepose_x.setDouble(bluePose.getX());
+            nt_bluepose_y.setDouble(bluePose.getY());
+        }
+
+        outputTv.setValue(targetValid);
+        outputTx.setDouble(x);
+
+        if (targetTag != null && targetID > 0) {
+            distanceToTargetTag
+                    .setDouble(((OdometryInterface) RobotContainer.getSubsystem("odometry"))
+                            .getDistanceToTranslation(targetTag));
+        }
+    }
 }

@@ -167,8 +167,8 @@ public class VisionPoseEstimator extends SubsystemBase implements OdometryInterf
     Pose2d updateEstimator() {
         prev_llPose = llPose;
         // let limelight sub-system decide if we are good to use estimate
-        // OK if it is run only intermittanly. Uses latency of vision pose.
-        if (limelight.valid()) { //make sure at least 1 tag is in view
+        // OK if it is run only intermittantly. Uses latency of vision pose.
+        if (!limelight.getRejectUpdate()) { 
             var pose = limelight.getBluePose();
             var ts = limelight.getVisionTimestamp();
             
