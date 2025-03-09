@@ -10,7 +10,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.command.WatcherCmd;
 import frc.lib2202.subsystem.swerve.config.ChassisConfig;
-
+import static frc.lib2202.Constants.DEGperRAD;
 /*
  * Watcher for SwerveDrivetrain and its vision data.
  *
@@ -55,7 +55,7 @@ public class DTMonitorCmd extends WatcherCmd {
   public void ntupdate() {
     // robot coordinates - speeds
     var speeds = sdt.getChassisSpeeds();
-    radiansPerSecond.setDouble(speeds.omegaRadiansPerSecond * 57.3);
+    radiansPerSecond.setDouble(speeds.omegaRadiansPerSecond * DEGperRAD);
     xMetersPerSec.setDouble(speeds.vxMetersPerSecond);
     yMetersPerSec.setDouble(speeds.vyMetersPerSecond);
   }

@@ -9,7 +9,7 @@ import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import edu.wpi.first.wpilibj.smartdashboard.FieldObject2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.command.WatcherCmd;
@@ -27,42 +27,41 @@ public class Odometry extends SubsystemBase implements OdometryInterface {
 
     // Outputs of this subsystem
     final Field2d m_field; // looking at code, seems there should only be one Field2d "Robot"
-    final String m_poseName;
-    final FieldObject2d m_field_obj; // puts pose in network table under m_poseName
+    final String m_odometryName;
     Pose2d m_pose; // pose based strictly on the odometry
 
     public Odometry() {
-        this("Robot_01",
-                RobotContainer.getSubsystem("drivetrain"),
-                RobotContainer.getSubsystem("sensors"));
+        this("Odometry",
+            RobotContainer.getSubsystem("drivetrain"),
+            RobotContainer.getSubsystem("sensors"));
     }
 
-    public Odometry(String poseName) {
-        this(poseName,
-                RobotContainer.getSubsystem("drivetrain"),
-                RobotContainer.getSubsystem("sensors"));
+    public Odometry(String odometryName) {
+        this(odometryName,
+            RobotContainer.getSubsystem("drivetrain"),
+            RobotContainer.getSubsystem("sensors"));
     }
 
-    public Odometry(String poseName, DriveTrainInterface drivetrain, IHeadingProvider gyro) {
-        this.m_poseName = poseName;
+    public Odometry(String odometryName, DriveTrainInterface drivetrain, IHeadingProvider gyro) {
+        this.m_odometryName = odometryName;
         this.drivetrain = drivetrain;
         this.gyro = gyro;
 
         m_pose = new Pose2d(0, 0, gyro.getRotation2d());
         // Field2d tracks multiple objects by name, Robot
         m_field = new Field2d();
-        m_field_obj = m_field.getObject(poseName);
         kinematics = drivetrain.getKinematics();
         meas_pos = drivetrain.getSwerveModulePositions();
 
         odometry = new SwerveDriveOdometry(kinematics, gyro.getHeading(), meas_pos, m_pose);
+        SmartDashboard.putData("FieldOdometry", m_field );
     }
 
     @Override
     public void periodic() {
         meas_pos = drivetrain.getSwerveModulePositions();
         m_pose = odometry.update(gyro.getHeading(), meas_pos);
-        m_field_obj.setPose(m_pose);
+        m_field.setRobotPose(m_pose);       
     }
 
     // sets the pose and resets the odometry states and drivetrain positions
@@ -94,9 +93,10 @@ public class Odometry extends SubsystemBase implements OdometryInterface {
 
     @Override
     public void printPose() {
-        System.out.println("***POSE " + m_poseName + " X:" + m_pose.getX() +
-                ", Y:" + m_pose.getY() +
-                ", Rot:" + m_pose.getRotation().getDegrees());
+        System.out.println("***POSE " + m_odometryName + 
+            "\n    X: " + m_pose.getX() +
+            "\n    Y: " + m_pose.getY() +
+            "\n  Rot: " + m_pose.getRotation().getDegrees());
     }
 
     @Override
@@ -123,15 +123,15 @@ public class Odometry extends SubsystemBase implements OdometryInterface {
 
         @Override
         public String getTableName() {
-            return "Odometry_" + m_poseName;
+            return m_odometryName;
         }
 
         @Override
         public void ntcreate() {
             NetworkTable MonitorTable = getTable();
-            currentX = MonitorTable.getEntry(m_poseName + "_x");
-            currentY = MonitorTable.getEntry(m_poseName + "_y");
-            currentHeading = MonitorTable.getEntry(m_poseName + "_h");
+            currentX = MonitorTable.getEntry(m_odometryName + "_x");
+            currentY = MonitorTable.getEntry(m_odometryName + "_y");
+            currentHeading = MonitorTable.getEntry(m_odometryName + "_h");
         }
 
         @Override

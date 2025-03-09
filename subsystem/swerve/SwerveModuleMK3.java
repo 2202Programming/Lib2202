@@ -428,7 +428,7 @@ public class SwerveModuleMK3 {
     //wip
     @SuppressWarnings("unused")
     double angle_dot = angleKp * angleCmdInvert *
-                       Math.copySign(MathUtil.clamp(Math.abs(delta), 0.0, ANGLE_SLEW_RATE), delta);
+            Math.copySign(MathUtil.clamp(Math.abs(delta), 0.0, ANGLE_SLEW_RATE), delta);
 
     if (this.mType == SparkMax.class) {
       driveSim.iterate(m_vel_target, 12.0, Constants.DT );
@@ -436,8 +436,8 @@ public class SwerveModuleMK3 {
       angleSim.setPosition(m_internalAngle + delta);
     } else {
       ((SparkFlexSim)driveSim).iterate(m_vel_target, 12.0, Constants.DT );
-      //angleSim.iterate(angle_dot, 12.0, Constants.DT );
       ((SparkFlexSim)angleSim).setPosition(m_internalAngle + delta);
+      ((SparkFlexSim)angleSim).iterate(0.0, 12.0, Constants.DT );
     }
   }
 

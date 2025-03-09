@@ -17,18 +17,19 @@ public abstract class BaseLimelight extends SubsystemBase {
     protected NetworkTable table;
     protected NetworkTable outputTable;
 
-    protected NetworkTableEntry leds;
-    protected NetworkTableEntry booleanLeds;
-    protected NetworkTableEntry NT_hasTarget;
+    protected NetworkTableEntry nt_leds;
+    protected NetworkTableEntry nt_booleanLeds;
+    protected NetworkTableEntry nt_hasTarget;
     protected NetworkTableEntry nt_bluepose_x;
     protected NetworkTableEntry nt_bluepose_y;
+    protected NetworkTableEntry nt_bluepose_h;
     protected NetworkTableEntry nt_rejectUpdate;
  
-    protected NetworkTableEntry outputTx;
-    protected NetworkTableEntry outputTv;
-    protected NetworkTableEntry pipelineNTE;
+    protected NetworkTableEntry nt_outputTx;
+    protected NetworkTableEntry nt_outputTv;
+    protected NetworkTableEntry nt_pipelineNTE;
     protected NetworkTableEntry nt_numApriltags;
-    protected NetworkTableEntry distanceToTargetTag;
+    protected NetworkTableEntry nt_distanceToTargetTag;
 
     protected double x;
     protected double filteredX;
@@ -73,23 +74,24 @@ public abstract class BaseLimelight extends SubsystemBase {
         x_iir = LinearFilter.singlePoleIIR(filterTC, Constants.DT);
         area_iir = LinearFilter.singlePoleIIR(filterTC, Constants.DT);
         table = NetworkTableInstance.getDefault().getTable(this.name);
-        outputTable = NetworkTableInstance.getDefault().getTable(this.name +"/out");
+        outputTable = NetworkTableInstance.getDefault().getTable(this.name.toUpperCase() + "_SS_Out");
 
-        leds = table.getEntry("ledMode");
-        booleanLeds = table.getEntry("booleanLeds");
-        pipelineNTE = table.getEntry("pipeline");
+        nt_leds = table.getEntry("ledMode");
+        nt_booleanLeds = table.getEntry("booleanLeds");
+        nt_pipelineNTE = table.getEntry("pipeline");
 
         // these are "output" entries for user debugging
         nt_bluepose_x = outputTable.getEntry("/LL Blue Pose X");
         nt_bluepose_y = outputTable.getEntry("/LL Blue Pose Y");
+        nt_bluepose_h = outputTable.getEntry("/LL Blue Pose H");
         nt_numApriltags = outputTable.getEntry("/LL_Num_Apriltag");
         nt_rejectUpdate = outputTable.getEntry("/LL RejectUpdate");
 
-        NT_hasTarget = outputTable.getEntry("/LL hasTarget");
-        outputTv = outputTable.getEntry("/Limelight Valid");
-        outputTx = outputTable.getEntry("/Limelight X error");
+        nt_hasTarget = outputTable.getEntry("/LL hasTarget");
+        nt_outputTv = outputTable.getEntry("/Limelight Valid");
+        nt_outputTx = outputTable.getEntry("/Limelight X error");
 
-        distanceToTargetTag = outputTable.getEntry("/Distance To TargetTag");
+        nt_distanceToTargetTag = outputTable.getEntry("/Distance To TargetTag");
         disableLED();
     }
 
@@ -176,15 +178,15 @@ public abstract class BaseLimelight extends SubsystemBase {
     }
 
     public void disableLED() {
-        leds.setNumber(1);
+        nt_leds.setNumber(1);
         ledStatus = false;
-        booleanLeds.setBoolean(ledStatus);
+        nt_booleanLeds.setBoolean(ledStatus);
     }
 
     public void enableLED() {
-        leds.setNumber(3);
+        nt_leds.setNumber(3);
         ledStatus = true;
-        booleanLeds.setBoolean(ledStatus);
+        nt_booleanLeds.setBoolean(ledStatus);
     }
 
     public void toggleLED() {
@@ -206,7 +208,7 @@ public abstract class BaseLimelight extends SubsystemBase {
 
     // switch between pipeline 0 and 1
     public void togglePipeline() {
-        long pipe = pipelineNTE.getInteger(0);
+        long pipe = nt_pipelineNTE.getInteger(0);
         if (pipe == 0) {
             setPipeline(1);
             pipeline = 1;
@@ -229,21 +231,23 @@ public abstract class BaseLimelight extends SubsystemBase {
     }
      
     public void log() {
-        NT_hasTarget.setBoolean(targetValid);
+        nt_hasTarget.setBoolean(targetValid);
         nt_rejectUpdate.setBoolean(getRejectUpdate());
+        nt_numApriltags.setInteger(numAprilTags);
 
         if (bluePose != null) {
             nt_bluepose_x.setDouble(bluePose.getX());
             nt_bluepose_y.setDouble(bluePose.getY());
+            nt_bluepose_h.setDouble(bluePose.getRotation().getDegrees());
         }
 
-        outputTv.setValue(targetValid);
-        outputTx.setDouble(x);
+        nt_outputTv.setValue(targetValid);
+        nt_outputTx.setDouble(x);
 
         if (targetTag != null && targetID > 0) {
-            distanceToTargetTag
-                    .setDouble(((OdometryInterface) RobotContainer.getSubsystem("odometry"))
-                            .getDistanceToTranslation(targetTag));
+            nt_distanceToTargetTag
+                .setDouble(((OdometryInterface) RobotContainer.getSubsystem("odometry"))
+                    .getDistanceToTranslation(targetTag));
         }
     }
 }

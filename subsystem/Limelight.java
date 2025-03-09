@@ -21,7 +21,7 @@ public class Limelight extends BaseLimelight {
 
   @Override
   public void periodic() {
-    pipeline = pipelineNTE.getInteger(0);
+    pipeline = nt_pipelineNTE.getInteger(0);
 
     // LL apriltags stuff
     LimelightHelpers.LimelightResults llresults = LimelightHelpers.getLatestResults(this.name);
