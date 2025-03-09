@@ -1,5 +1,7 @@
 package frc.lib2202.command.swerve;
 
+import static frc.lib2202.Constants.DEGperRAD;
+
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -31,9 +33,9 @@ public class RobotCentricDrive extends Command {
   SwerveModuleState[] output_states;
 
   // Slew rate limiters to make joystick inputs more gentle; 1/3 sec from 0 to 1.
-  final SlewRateLimiter xspeedLimiter = new SlewRateLimiter(3);
-  final SlewRateLimiter yspeedLimiter = new SlewRateLimiter(3);
-  final SlewRateLimiter rotLimiter = new SlewRateLimiter(3);
+  final SlewRateLimiter xspeedLimiter = new SlewRateLimiter(3); // [m/s2]
+  final SlewRateLimiter yspeedLimiter = new SlewRateLimiter(3); // [m/s2]
+  final SlewRateLimiter rotLimiter = new SlewRateLimiter(90.0/DEGperRAD);   // [rad/s2]
 
   double log_counter = 0;
 
