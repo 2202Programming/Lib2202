@@ -273,12 +273,21 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   }
 
   public ChassisSpeeds getFieldRelativeSpeeds() {
+    var speeds = getChassisSpeeds();
+    var rot2d = sensors.getRotation2d();
+    return new ChassisSpeeds(
+      //avoid multiple calls to getCS() & sensors.getRotation2d()
+      speeds.vxMetersPerSecond * rot2d.getCos() - speeds.vyMetersPerSecond * rot2d.getSin(),
+      speeds.vyMetersPerSecond * rot2d.getCos() + speeds.vxMetersPerSecond * rot2d.getSin(),
+      speeds.omegaRadiansPerSecond);
+/*
     return new ChassisSpeeds(
         getChassisSpeeds().vxMetersPerSecond * sensors.getRotation2d().getCos()
             - getChassisSpeeds().vyMetersPerSecond * sensors.getRotation2d().getSin(),
         getChassisSpeeds().vyMetersPerSecond * sensors.getRotation2d().getCos()
             + getChassisSpeeds().vxMetersPerSecond * sensors.getRotation2d().getSin(),
         getChassisSpeeds().omegaRadiansPerSecond);
+  */
   }
 
   /**
