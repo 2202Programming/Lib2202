@@ -3,6 +3,8 @@
 // the WPILib BSD license file in the root directory of this project.
 package frc.lib2202.subsystem.swerve;
 
+import static frc.lib2202.Constants.DEGperRAD;
+
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.StatusSignal;
 //wip import com.ctre.phoenix6.BaseStatusSignal;
@@ -19,8 +21,13 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
+import frc.lib2202.command.WatcherCmd;
 import frc.lib2202.subsystem.swerve.config.ChassisConfig;
 import frc.lib2202.subsystem.swerve.config.ModuleConfig;
 import frc.lib2202.util.ModMath;
@@ -54,7 +61,8 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   // Swerver States and positions
   SwerveModuleState[] meas_states; // measured wheel speed & angle
   SwerveModulePosition[] meas_pos; // distance & angle for each module
-
+  ChassisSpeeds speedsRC;
+ 
   // sensors and our mk3 modules
   final IHeadingProvider sensors;
   final SwerveModuleMK3[] modules;
@@ -94,7 +102,6 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     for (int i = 0; i < mc.length; i++) {
       canCoders[i] = initCANcoder(mc[i].CANCODER_ID, mc[i].kAngleOffset);
 
-
       modules[i] = new SwerveModuleMK3(
           mtrClass,
           // handle either flex or max for modules
@@ -114,8 +121,10 @@ public class SwerveDrivetrain extends DriveTrainInterface {
       // canCoders[i].getPosition(), canCoders[i].getVelocity());
     }
 
-    meas_states = kinematics.toSwerveModuleStates(new ChassisSpeeds(0, 0, 0));
+    speedsRC = new ChassisSpeeds(0, 0, 0);
+    meas_states = kinematics.toSwerveModuleStates(speedsRC);
     offsetDebug();
+    getWatcher();
   }
 
   /**
@@ -216,6 +225,8 @@ public class SwerveDrivetrain extends DriveTrainInterface {
       meas_states[i].angle = meas_pos[i].angle = modules[i].getAngleRot2d();
       meas_pos[i].distanceMeters = modules[i].getPosition();
     }
+    //chassis speeds 
+    speedsRC = kinematics.toChassisSpeeds(meas_states);
   }
 
   static boolean simInit = false;
@@ -235,8 +246,6 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     for (int i = 0; i < modules.length; i++) {
       modules[i].simulationPeriodic();
     }
-
-
   }
 
   //set all module positions to given position [m].
@@ -253,10 +262,6 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     }
   }
 
-  /// public SwerveDriveOdometry getOdometry() {
-  ///   return m_odometry;
-  /// }
-
   public SwerveModuleMK3 getMK3(int modID) {
     if ((modID < 0) || (modID > modules.length - 1))
       return null;
@@ -269,7 +274,8 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   }
 
   public ChassisSpeeds getChassisSpeeds() {
-    return kinematics.toChassisSpeeds(meas_states);
+    return speedsRC;
+    //return kinematics.toChassisSpeeds(meas_states);
   }
 
   public ChassisSpeeds getFieldRelativeSpeeds() {
@@ -280,14 +286,6 @@ public class SwerveDrivetrain extends DriveTrainInterface {
       speeds.vxMetersPerSecond * rot2d.getCos() - speeds.vyMetersPerSecond * rot2d.getSin(),
       speeds.vyMetersPerSecond * rot2d.getCos() + speeds.vxMetersPerSecond * rot2d.getSin(),
       speeds.omegaRadiansPerSecond);
-/*
-    return new ChassisSpeeds(
-        getChassisSpeeds().vxMetersPerSecond * sensors.getRotation2d().getCos()
-            - getChassisSpeeds().vyMetersPerSecond * sensors.getRotation2d().getSin(),
-        getChassisSpeeds().vyMetersPerSecond * sensors.getRotation2d().getCos()
-            + getChassisSpeeds().vxMetersPerSecond * sensors.getRotation2d().getSin(),
-        getChassisSpeeds().omegaRadiansPerSecond);
-  */
   }
 
   /**
@@ -315,5 +313,58 @@ public class SwerveDrivetrain extends DriveTrainInterface {
       modules[i].setCoastMode();
     }
     System.out.println("***BRAKES RELEASED***");
+  }
+
+  Command getWatcher() {
+    return this.new SwerveMonitorCmd();
+  }
+
+  /*
+   * Watcher for SwerveDrivetrain and its vision data.
+   *
+   * Only watches high level data, for module details see the tables for each of
+   * the modules.
+   */
+  public class SwerveMonitorCmd extends WatcherCmd {
+
+    // chassis velocity
+    NetworkTableEntry nt_radiansPerSecond;
+    NetworkTableEntry nt_xMetersPerSec;
+    NetworkTableEntry nt_yMetersPerSec;
+    NetworkTableEntry nt_speeds;
+    NetworkTableEntry nt_speedsDesc;
+
+    NetworkTableEntry nt_deltas;
+    
+    public SwerveMonitorCmd() {
+
+      // use smartdashboard for complex objects
+      var tname = getTableName();
+      SmartDashboard.putData(tname + "/drive PIDF", cc.drivePIDF);
+      SmartDashboard.putData(tname + "/angle PIDF", cc.anglePIDF);
+    }
+
+    @Override
+    public String getTableName() {
+      return SwerveDrivetrain.class.getSimpleName();
+    }
+
+    @Override
+    public void ntcreate() {
+      NetworkTable MonitorTable = getTable();
+      nt_radiansPerSecond = MonitorTable.getEntry("Vrot");
+      nt_xMetersPerSec = MonitorTable.getEntry("Vx ");
+      nt_yMetersPerSec = MonitorTable.getEntry("Vy ");
+      nt_speeds = MonitorTable.getEntry("speeds");
+    }
+
+    @Override
+    public void ntupdate() {
+      // robot coordinates - speeds
+      nt_radiansPerSecond.setDouble(speedsRC.omegaRadiansPerSecond * DEGperRAD);
+      nt_xMetersPerSec.setDouble(speedsRC.vxMetersPerSecond);
+      nt_yMetersPerSec.setDouble(speedsRC.vyMetersPerSecond);
+      nt_speeds.setString(speedsRC.toString());
+    }
   }
 }

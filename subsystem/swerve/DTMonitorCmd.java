@@ -15,7 +15,10 @@ import static frc.lib2202.Constants.DEGperRAD;
  * Watcher for SwerveDrivetrain and its vision data.
  *
  *  Only watches high level data, for module details see the tables for each of the modules.
+ * 
+ * @deprecated Use watcher inside SDT class
  */
+@Deprecated
 public class DTMonitorCmd extends WatcherCmd {
  
   // chassis velocity
