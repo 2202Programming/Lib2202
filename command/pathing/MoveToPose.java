@@ -22,6 +22,7 @@ public class MoveToPose extends Command {
   final OdometryInterface odo;
   final Pose2d targetPose;
   Command pathfindingCommand;
+  boolean was_scheduled;
   
   final String odoName;
   final PathConstraints constraints;
@@ -87,15 +88,14 @@ public class MoveToPose extends Command {
     pathfindingCommand = AutoBuilder.pathfindToPose(targetPose, constraints,0.0);  
     pathfindingCommand.addRequirements(sdt);
     pathfindingCommand.schedule();
+    was_scheduled = pathfindingCommand.isScheduled();
   }
 
   // Called once the command ends or is interrupted.
   @Override
   public void end(boolean interrupted) {
-    if (interrupted) {
-      if (pathfindingCommand.isScheduled())  
-        pathfindingCommand.cancel();
-    }
+    // cleanup the pathfindingCommand
+    if (pathfindingCommand != null) pathfindingCommand.cancel();
   }
 
   // Returns true when the command should end.
@@ -106,8 +106,10 @@ public class MoveToPose extends Command {
     // This protects and gives time to finish the pathfinding/scheduling.
     if (pathfindingCommand == null) 
       return false;
-
-    return pathfindingCommand.isFinished();
+    var scheduled = pathfindingCommand.isScheduled();
+    //cms were leftover if never finished, so check for was_scheduled and not currently
+    //if that happens, call it over.
+    return pathfindingCommand.isFinished() || (was_scheduled && !scheduled);
   }
  
 }
