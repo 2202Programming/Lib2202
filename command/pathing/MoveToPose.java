@@ -11,8 +11,9 @@ import frc.lib2202.subsystem.OdometryInterface;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 public class MoveToPose extends Command {
-  final static double RampTime = 1.5; //[1/s]
-  
+  final static double RampTimeVxy = 1.5;  //[s] time to get to max vel
+  final static double RampTimeRot = 0.75; //[s] time to get to max rot/s
+
   // sdt and odo/gyro are set in the AutoBuilder
  
   //IHeadingProvider gyro;
@@ -29,12 +30,13 @@ public class MoveToPose extends Command {
   
   /**
    * Constructs a MoveToPoint
-   * Uses default constraints for velocity and accelerations.
+   * Uses default constraints for velocity and accelerations from robot_spec
+   * and default acceleration ramp rates
    * Expects the OdometryInterface SS to be named "odometry".
    * @param targetPose target pose2D
    */
   public MoveToPose(Pose2d targetPose) {
-    this("odometry", getConstraints(),targetPose );
+    this("odometry", getConstraints(RampTimeVxy, RampTimeRot), targetPose);
   }
 
    /**
@@ -43,8 +45,18 @@ public class MoveToPose extends Command {
    * @param targetPose target pose2D
    */
   public MoveToPose(String odoName, Pose2d targetPose) {
-    this(odoName, getConstraints(),targetPose );
+    this(odoName, getConstraints(RampTimeVxy, RampTimeRot), targetPose );
   }
+
+   /**
+   * Constructs a MoveToPoint
+   * @param odoName name of odometry SS to use
+   * @param targetPose target pose2D
+   */
+  public MoveToPose(String odoName, Pose2d targetPose, double rampTimeXY, double rampTimeRot) {
+    this(odoName, getConstraints(rampTimeXY, rampTimeRot), targetPose );
+  }
+
   /**
    * Constructs a MoveToPoint
    * @param odoName name of odometry SS to use
@@ -52,9 +64,8 @@ public class MoveToPose extends Command {
    * @param targetPose target pose2D
    */
   public MoveToPose(String odoName, PathConstraints constraints, Pose2d targetPose) {
-    //gyro = RobotContainer.getRobotSpecs().getHeadingProvider();
     this.odoName = odoName;
-    this.constraints = (constraints != null) ? constraints : getConstraints();
+    this.constraints = constraints;
     this.targetPose = targetPose;
    
     // odometry must be configured AND setup in AutoBuilder 
@@ -64,10 +75,10 @@ public class MoveToPose extends Command {
   }
 
   //use the RobotSpecs' RobotLimits, and RampTime above to create path constaints
-  static PathConstraints getConstraints() {
+  static PathConstraints getConstraints(double rampTimeXY, double rampTimeRot) {
     RobotLimits limits = RobotContainer.getRobotSpecs().getRobotLimits();
-    var c = new PathConstraints(limits.kMaxSpeed, limits.kMaxSpeed * RampTime,
-                limits.kMaxAngularSpeed, limits.kMaxAngularSpeed*RampTime);
+    var c = new PathConstraints(limits.kMaxSpeed, limits.kMaxSpeed / rampTimeXY,
+                limits.kMaxAngularSpeed, limits.kMaxAngularSpeed / rampTimeRot);
     return c;
   }
 
@@ -109,7 +120,9 @@ public class MoveToPose extends Command {
     var scheduled = pathfindingCommand.isScheduled();
     //cms were leftover if never finished, so check for was_scheduled and not currently
     //if that happens, call it over.
-    return pathfindingCommand.isFinished() || (was_scheduled && !scheduled);
+    var finished = pathfindingCommand.isFinished();
+    var hanging = (was_scheduled && !scheduled);
+    return finished || hanging;
   }
  
 }
