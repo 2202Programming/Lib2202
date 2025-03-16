@@ -79,27 +79,31 @@ public class SubsystemConfig {
 
         // container for Subsystem Class and instance object
         SubsystemDefinition(Class<T> clz) {
-            m_Class = clz;
-            m_obj = null;
+            m_Class = clz;            
         }
 
         SubsystemDefinition(Class<T> clz, String alias) {
             m_Class = clz;
-            m_obj = null;
             m_alias = alias;
         }
 
         @SuppressWarnings("unchecked")
         SubsystemDefinition(T obj) {
-            this.m_Class = (Class<T>) obj.getClass();
-            this.m_obj = obj;
+            m_Class = (Class<T>) obj.getClass();
+            m_obj = obj;
         }
 
         SubsystemDefinition(Class<T> clz, Supplier<Object> factory) {
-            this.m_Class = clz;
-            this.m_obj = null;
-            this.m_factory = factory;
+            m_Class = clz;
+            m_factory = factory;
         }
+        
+        SubsystemDefinition(Class<T> clz, String alias, Supplier<Object> factory) {
+            m_Class = clz;
+            m_factory = factory;
+            m_alias = alias;
+        }
+
 
         /*
          * construct the subsystem using the default constructor.
@@ -109,20 +113,12 @@ public class SubsystemConfig {
             if (m_obj != null)
                 return;
             
-            // alias fixed in constructAll()
-            if (m_alias != null) 
-                return;
-
-            // have a Factory supplied lambda
-            if (m_factory != null) {
-                m_obj = m_factory.get();
-                return;
-            }
-
             // use a no-args constructor for anything without a factory lambda
             try {
                 // Use the no-args constructor to create instance
-                m_obj = m_Class.getDeclaredConstructor().newInstance();
+                m_obj = (m_factory != null) ?  
+                        m_factory.get() :
+                        m_Class.getDeclaredConstructor().newInstance();
 
             } catch (NoSuchMethodException e) {
                 System.out.println("*** Problem creating " + m_Class.getSimpleName()
@@ -155,8 +151,18 @@ public class SubsystemConfig {
      */
     public <T> SubsystemConfig addAlias(Class<T> clz, String alias) {
         String name = clz.getSimpleName();
-        var ssd = new SubsystemDefinition<T>(clz, alias);
+        var ssd = new SubsystemDefinition<T>(clz);
+        ssd.m_alias = alias;
         put(name, ssd);
+        put(alias, ssd);   //ailas also points to this ssd, so either name finds SS
+        return this;
+    }
+
+    public <T> SubsystemConfig addAlias(Class<T> clz, String alias, Supplier<Object> factory ) {
+        String name = clz.getSimpleName();
+        var ssd = new SubsystemDefinition<T>(clz, alias, factory);
+        put(name, ssd);
+        put(alias, ssd);   //ailas also points to this ssd, so either name finds SS
         return this;
     }
 
@@ -168,7 +174,7 @@ public class SubsystemConfig {
     }
 
     public <T> SubsystemConfig add(Class<T> clz, String name) {        
-        put(name, new SubsystemDefinition<T>(clz));
+        put(name, new SubsystemDefinition<T>(clz, name));
         return this;
     }
 
@@ -179,7 +185,7 @@ public class SubsystemConfig {
 
     // Facory adds must have a Type and a name
     public <T> SubsystemConfig add(Class<T> clz, String name, Supplier<Object> factory) {
-        put(name, new SubsystemDefinition<T>(clz, factory));
+        put(name, new SubsystemDefinition<T>(clz, name, factory));
         return this;
     }
     
@@ -284,11 +290,11 @@ public class SubsystemConfig {
                     entry.getValue().m_Class.getSimpleName());
             entry.getValue().construct();
 
-            //handle alias which must be defined After the instance is created.
-            var ssd = entry.getValue();
-            if (ssd.m_alias != null) {
-                ssd.m_obj = selectedConfig.get(ssd.m_Class.getSimpleName()).m_obj;
-            }
+            // //handle alias which must be defined After the instance is created.
+            // var ssd = entry.getValue();
+            // if (ssd.m_alias != null) {
+            //     ssd.m_obj = selectedConfig.get(ssd.m_Class.getSimpleName()).m_obj;
+            // }
         }
     }
 
