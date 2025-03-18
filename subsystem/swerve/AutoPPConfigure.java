@@ -17,7 +17,7 @@ public class AutoPPConfigure {
         // use default pids for trans/rot
         configureAutoBuilder(sdt, odometry,
                 new PIDConstants(7.0, 0.0, 0.0), // Translation PID constants
-                new PIDConstants(7.0, 0.0, 0.0)); // Rotation PID constants
+                new PIDConstants(7.7, 0.0, 0.0)); // Rotation PID constants | P was 7.0
     }
 
     public static void configureAutoBuilder(DriveTrainInterface sdt, OdometryInterface odometry,

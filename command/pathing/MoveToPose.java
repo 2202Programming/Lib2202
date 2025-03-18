@@ -11,7 +11,7 @@ import frc.lib2202.subsystem.OdometryInterface;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 public class MoveToPose extends Command {
-  final static double RampTimeVxy = 1.5;  //[s] time to get to max vel
+  final static double RampTimeVxy = 2.0;  //[s] time to get to max vel
   final static double RampTimeRot = 0.75; //[s] time to get to max rot/s
 
   // sdt and odo/gyro are set in the AutoBuilder
