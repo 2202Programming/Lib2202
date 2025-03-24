@@ -4,6 +4,7 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.path.PathConstraints;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.builder.RobotLimits;
@@ -71,7 +72,8 @@ public class MoveToPose extends Command {
     // odometry must be configured AND setup in AutoBuilder 
     sdt = RobotContainer.getSubsystem("drivetrain");
     odo = RobotContainer.getSubsystemOrNull(odoName);
-    //addRequirements(sdt); this command doesn't need the requirement, but the one generated does
+    //because this command is going to run the calculate path I think it should have sdt requirements
+    addRequirements(sdt);
   }
 
   //use the RobotSpecs' RobotLimits, and RampTime above to create path constaints
@@ -86,43 +88,47 @@ public class MoveToPose extends Command {
   @Override
   public void initialize() {
     if (odo == null) {
-      System.out.println("Odometry " + odoName + " not found, not running path.");
+      DriverStation.reportError("MoveToPose: Odometry " + odoName + " not found, not running path.", false);
       return;
     }
 
     if (!AutoBuilder.isConfigured()) {
-      System.out.println("AutoBuilder not configured, not running path.");
+      DriverStation.reportError("MoveToPose: AutoBuilder not configured, not running path.", false);
       return;
     }
 
     //compute path to point, run it.
     pathfindingCommand = AutoBuilder.pathfindToPose(targetPose, constraints,0.0);  
-    pathfindingCommand.addRequirements(sdt);
-    pathfindingCommand.schedule();
-    was_scheduled = pathfindingCommand.isScheduled();
+
+    //now run the command in this command container, don't schedule it...
+    if(pathfindingCommand != null){
+       pathfindingCommand.initialize();
+    }
+    else {
+      DriverStation.reportError("MoveToPose: AutoBuilder return null command.", false);
+    }
+  }
+
+  @Override
+  public void execute() {
+    if (pathfindingCommand == null) return;
+    pathfindingCommand.execute();
   }
 
   // Called once the command ends or is interrupted.
   @Override
   public void end(boolean interrupted) {
     // cleanup the pathfindingCommand
-    if (pathfindingCommand != null) pathfindingCommand.cancel();
+    if (pathfindingCommand != null) {
+      pathfindingCommand.end(interrupted);
+    }
   }
 
   // Returns true when the command should end.
   @Override
   public boolean isFinished() {
-    //not ready yet?? There can be a race where MoveToPose is created and used externally 
-    // to schedule and have it's isFinished checked, but the pathFindingCmd isn't completed yet.
-    // This protects and gives time to finish the pathfinding/scheduling.
-    if (pathfindingCommand == null) 
-      return false;
-    var scheduled = pathfindingCommand.isScheduled();
-    //cms were leftover if never finished, so check for was_scheduled and not currently
-    //if that happens, call it over.
-    var finished = pathfindingCommand.isFinished();
-    var hanging = (was_scheduled && !scheduled);
-    return finished || hanging;
+    var finished = (pathfindingCommand == null) || pathfindingCommand.isFinished();
+    return finished;
   }
  
 }
