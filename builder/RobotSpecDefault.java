@@ -4,8 +4,6 @@ import static edu.wpi.first.units.Units.DegreesPerSecond;
 import static edu.wpi.first.units.Units.FeetPerSecond;
 import static frc.lib2202.Constants.MperFT;
 
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.subsystem.swerve.IHeadingProvider;
 import frc.lib2202.subsystem.swerve.config.ChassisConfig;
 import frc.lib2202.subsystem.swerve.config.ModuleConfig;
@@ -71,8 +69,7 @@ public class RobotSpecDefault implements IRobotSpec {
     }
 
     @Override
-    public SendableChooser<Command> getRegisteredCommands() {
-      return null;
+    public void setupRegisteredCommands() {
     }
 
     @Override

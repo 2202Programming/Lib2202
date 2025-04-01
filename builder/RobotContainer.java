@@ -104,7 +104,8 @@ public class RobotContainer {
     DriverStation.silenceJoystickConnectionWarning(true);
 
     getRobotSpecs().setBindings();
-    autoChooser =getRobotSpecs().getRegisteredCommands();
+    getRobotSpecs().setupRegisteredCommands();
+    autoChooser = getRobotSpecs().getChooser();
     getRobotSpecs().setDefaultCommands();
   }
 

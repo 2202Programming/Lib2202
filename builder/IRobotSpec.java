@@ -31,7 +31,10 @@ public interface IRobotSpec {
     default public boolean burnFlash(){ return true;};
 
     // Setup registered commands
-    public abstract SendableChooser<Command> getRegisteredCommands();
+    default public void setupRegisteredCommands() {};
+
+    // Setup registered commands
+    default public SendableChooser<Command> getChooser() { return null;};
 
     public abstract void setDefaultCommands();
 
