@@ -85,6 +85,12 @@ public class Odometry extends SubsystemBase implements OdometryInterface {
     public void setAnglePose(Rotation2d rot) {
         setPose(new Pose2d(m_pose.getTranslation(), rot));
     }
+    
+    @Override
+    public void setTranslation(Translation2d newPosition) {
+        // update the xy, but keeps gyro unchanged
+        setPose(new Pose2d(newPosition, gyro.getHeading()));
+    }
 
     @Override
     public Pose2d getPose() {

@@ -10,6 +10,7 @@ public interface OdometryInterface {
     // core odometry API
     public void setPose(Pose2d newPose);   // new x,y,heading
     public void setAnglePose(Rotation2d rot); // new heading, keeps x,y
+    public void setTranslation(Translation2d newPosition); // new xy, no gyro reset
     public Pose2d getPose();
     public void printPose();
     public double getDistanceToTranslation(Translation2d targetTranslation);
