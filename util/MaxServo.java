@@ -33,6 +33,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.Constants;
 import frc.lib2202.command.WatcherCmd;
+
+// MaxMotion Docs: https://docs.revrobotics.com/revlib/spark/closed-loop/maxmotion-position-control
 @SuppressWarnings("rawtypes")
 public class MaxServo implements VelocityControlled {
     String name = "no-name";
