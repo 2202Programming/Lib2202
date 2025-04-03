@@ -72,11 +72,21 @@ public class NeoServo implements VelocityControlled {
     final RelativeEncoder encoder;
     RelativeEncoder posEncoder = null;
 
-    /*
-     * internal constructor shared by other forms, does most of setup
-     * encoder and pid set in calling constructor.
-     */
 
+    /**
+     * NeoServo Private (internal) Constructor
+     * This constructor is to be called by the following public constructors, providing default
+     * values and pre-flight checks where appropiate
+     * 
+     * @param canID CAN ID of the motor controller to program
+     * @param motorType Motor type. Typically Brushless, but could be Brushed on onld motors
+     * @param positionPID PID Object to be used to control position.
+     * @see edu.wpi.first.math.controller.PIDController#PIDController(double kp, double ki, double kd) PIDController()
+     * @param hwVelPIDcfg PIDFConfig object representing the velocity
+     * 
+     * 
+     * @see com.revrobotics.spark.SparkLowLevel.MotorType MotorType
+     */
     private NeoServo(int canID, MotorType motorType,
             PIDController positionPID,
             PIDFController hwVelPIDcfg,
