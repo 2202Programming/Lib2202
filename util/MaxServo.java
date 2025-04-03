@@ -34,22 +34,19 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.Constants;
 import frc.lib2202.command.WatcherCmd;
 @SuppressWarnings("rawtypes")
-public class NeoServo implements VelocityControlled {
+public class MaxServo implements VelocityControlled {
     String name = "no-name";
     Class mtrClass;
     // commands
-    double velocity_cmd; // computed from pid, or external_vel_cmd
-    double maxVelocity; // limits
-    double initialMaxVelocity = 0.0; // keep the first non-zero as the hard max
-    double arbFeedforward = 0.0; // for specialized control cases
-    double external_vel_cmd = 0.0; // for velocity_mode == true
-    boolean velocity_mode = false;
+    
     double trim = 0.0; // offset from the commanded position (not seen in measured)
     double MIN_POS = -500.0, MAX_POS = 500.0; // PLEASE SET YOUR CLAMP VALUES
    
     // measured values
     double currentPos;
     double currentVel;
+
+    double setPoint;
 
     // safety checks on servo movement
     int safety_frame_count = 0;
@@ -61,7 +58,6 @@ public class NeoServo implements VelocityControlled {
     int prev_direction = 0;             // 0 no stall, otherwise sign of velocity
 
     // state vars
-    final PIDController positionPID;
     final public PIDFController hwVelPIDcfg; // matches hardware setting
     final ClosedLoopSlot hwVelSlot;
 
@@ -77,21 +73,24 @@ public class NeoServo implements VelocityControlled {
      * encoder and pid set in calling constructor.
      */
 
-    private NeoServo(int canID, MotorType motorType,
-            PIDController positionPID,
+    private MaxServo(int canID, MotorType motorType,
             PIDFController hwVelPIDcfg,
             boolean inverted, ClosedLoopSlot hwVelSlot,
-            Type encType, int kCPR, Class mtrClass) {
+            Type encType, int kCPR, Class mtrClass, double maxVelocity, double maxAccel, double allowedError) {
         this.mtrClass = mtrClass;
         ctrl = (mtrClass == SparkMax.class) ? new SparkMax(canID, motorType) : new SparkFlex(canID, motorType);
         ctrlCfg = (mtrClass == SparkMax.class) ? new SparkMaxConfig() : new SparkFlexConfig();
-        setName("NeoServo-" + canID);  //until a better name is selected
+        setName("MaxServo-" + canID);  //until a better name is selected
         ctrl.setCANTimeout(50); //enter blocking mode for config
         ctrl.clearFaults();
         //not used libs2025 update  ctrl.restoreFactoryDefaults();
         ctrlCfg.inverted(inverted)
-               .idleMode(IdleMode.kBrake);
-       
+              .idleMode(IdleMode.kBrake);
+        ctrlCfg.closedLoop.maxMotion
+              .maxVelocity(maxVelocity)
+              .maxAcceleration(maxAccel)
+              .allowedClosedLoopError(allowedError);
+
         if (encType == null) {
             //normal, internal encoder based on motor counts                      
             ctrlCfg.closedLoop.feedbackSensor(FeedbackSensor.kPrimaryEncoder) 
@@ -119,12 +118,11 @@ public class NeoServo implements VelocityControlled {
                 ***********************************/
         }
         else {
-            System.out.println("NEO SERVO config error ... STOPPING with NPE");
+            System.out.println("MAX SERVO config error ... STOPPING with NPE");
             throw new NullPointerException();
         }
        
         // copy rest of inputs
-        this.positionPID = positionPID;
         this.hwVelSlot = hwVelSlot;
         this.hwVelPIDcfg = hwVelPIDcfg;
         
@@ -142,57 +140,20 @@ public class NeoServo implements VelocityControlled {
         ctrl.setCANTimeout(0); //leave blocking mode
     }
 
-    /* default slot0 for pid slot */
-    public NeoServo(int canID, PIDController positionPID, PIDFController hwVelPIDcfg, boolean inverted) {
-        this(canID, positionPID, hwVelPIDcfg, inverted, ClosedLoopSlot.kSlot0);
-    }
-
-    public NeoServo(int canID, PIDController positionPID, PIDFController hwVelPIDcfg, boolean inverted, ClosedLoopSlot hwVelSlot) {
-        this(canID, MotorType.kBrushless, positionPID, hwVelPIDcfg, inverted,  hwVelSlot, 
-            null, 0, SparkMax.class);        
-    }
-
-    // Works now with given motor type and an alt encoder
-    public NeoServo(int canID, MotorType motorType,
-            PIDController positionPID,
-            PIDFController hwVelPIDcfg,
-            Type extEncoderType, int kCPR,  
-            boolean inverted, ClosedLoopSlot hwVelSlot) {
-        this(canID, MotorType.kBrushless, positionPID, hwVelPIDcfg, inverted,  hwVelSlot, 
-            extEncoderType, kCPR, SparkMax.class);        
-    }
-
-    public NeoServo(int canID, PIDController positionPID, PIDFController hwVelPIDcfg, boolean inverted, Class mtrClass) {
-        this(canID, positionPID, hwVelPIDcfg, inverted, ClosedLoopSlot.kSlot0, mtrClass);
-    }
-
-    public NeoServo(int canID, PIDController positionPID, PIDFController hwVelPIDcfg, boolean inverted, ClosedLoopSlot hwVelSlot, Class mtrClass) {
-        this(canID, MotorType.kBrushless, positionPID, hwVelPIDcfg, inverted,  hwVelSlot, 
-            null, 0, mtrClass);        
-    }
-
-    // Works now with given motor type and an alt encoder
-    public NeoServo(int canID, MotorType motorType,
-            PIDController positionPID,
-            PIDFController hwVelPIDcfg,
-            Type extEncoderType, int kCPR,  
-            boolean inverted, ClosedLoopSlot hwVelSlot, Class mtrClass) {
-        this(canID, MotorType.kBrushless, positionPID, hwVelPIDcfg, inverted,  hwVelSlot, 
-            extEncoderType, kCPR, mtrClass);        
-    }
+   
 
     void errorCheck() {
         REVLibError error = ctrl.getLastError();
         if (error!= REVLibError.kOk) {
-            System.out.println(name + " SparkMax LastError:" + error.toString() + ", clearing." );
+            System.out.println(name + " SparkMax/Flex LastError:" + error.toString() + ", clearing." );
         }
         error = ctrl.clearFaults();
         if (error!= REVLibError.kOk) {
-            System.out.println(name + " SparkMax couldn't clear faults:" + error.toString() + ", good luck." );
+            System.out.println(name + " SparkMax/Flex couldn't clear faults:" + error.toString() + ", good luck." );
         }
     }
 
-    public NeoServo setName(String name) {
+    public MaxServo setName(String name) {
         this.name = name;
         return this;
     }
@@ -205,7 +166,7 @@ public class NeoServo implements VelocityControlled {
      * CPR - count / rotation likely 8192
      * scale_rotation - [units/rotation]
      */
-    public NeoServo addAltPositionEncoder(Type encType, int CPR, double scale_rotations){
+    public MaxServo addAltPositionEncoder(Type encType, int CPR, double scale_rotations){
         if(mtrClass == SparkMax.class){
             ((SparkMaxConfig) ctrlCfg).alternateEncoder
             .countsPerRevolution(CPR)
@@ -242,7 +203,7 @@ public class NeoServo implements VelocityControlled {
      * 
      * This is for the default internal encoder used in spareMax/flux. If an alternate or external encoder
      * is needed use addAltPositionEncoder()  
-     * @see NeoServo.addAltPositionEncoder(Type encType, int CPR, double scale_rotations
+     * @see MaxServo.addAltPositionEncoder(Type encType, int CPR, double scale_rotations
      * 
      * @see com.revrobotics.spark.config.EncoderConfig#positionConversionFactor(double factor)
      * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/encoderconfig#positionConversionFactor(double)"></a>
@@ -250,9 +211,9 @@ public class NeoServo implements VelocityControlled {
      * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/encoderconfig#velocityConversionFactor(double)"></a>
      * 
      * @param conversionFactor A double representing the conversion factor
-     * @return The modified NeoServo object for method chaining
+     * @return The modified MaxServo object for method chaining
      */
-    public NeoServo setConversionFactor(double conversionFactor) {
+    public MaxServo setConversionFactor(double conversionFactor) {
         //use the normal internal encoder
         EncoderConfig enc = (mtrClass == SparkMax.class) ?
                     ((SparkMaxConfig)ctrlCfg).encoder  :
@@ -263,25 +224,13 @@ public class NeoServo implements VelocityControlled {
         return this;
     }
 
-    /**
-     * Set the motor's positional and velocity tolerance. If SetConversionFactor() was called, 
-     * this will be in engineering units
-     * 
-     * @param posTol motor's positional tolerance in engineering units
-     * @param velTol motor's velocity tolerance in engineering units
-     * @return The modified NeoServo object for method chaining
-     */
-    public NeoServo setTolerance(double posTol, double velTol) {
-        positionPID.setTolerance(posTol, velTol);
-        return this;
-    }
 
-    public NeoServo setSmartCurrentLimit(int stallLimit, int freeLimit) {
+    public MaxServo setSmartCurrentLimit(int stallLimit, int freeLimit) {
         // sets curren limits, but RPMLimit is not enabled, 10K is default
         return setSmartCurrentLimit(stallLimit, freeLimit, 10000);
     }
 
-    public NeoServo setSmartCurrentLimit(int stallLimit, int freeLimit, int rpmLimit) {
+    public MaxServo setSmartCurrentLimit(int stallLimit, int freeLimit, int rpmLimit) {
         // save stall current limit derated for stall check
         this.stall_limit_current = stallLimit*0.95;
         ctrlCfg.smartCurrentLimit(stallLimit, freeLimit, rpmLimit);
@@ -289,52 +238,27 @@ public class NeoServo implements VelocityControlled {
         return this;
     }
 
-    public NeoServo setVelocityHW_PID(double smVelMax, double smAccelMax) {
+    public MaxServo setVelocityHW_PID(double smVelMax, double smAccelMax) {
         // write the hwVelPIDcfgcfg constants to the sparkmax
         hwVelPIDcfg.copyTo(ctrl, ctrlCfg, hwVelSlot, smVelMax, smAccelMax);
         return this;
     }
-
-    public NeoServo burnFlash() {
-        // TODO - clean up burnflash option, now its embedded in configure() call
-        //ctrl.burnFlash();
-        //Timer.delay(.2); // this holds up the current thread
-        return this;
-    }
-
-    /**
-     * Sets the motor controller's max velocity in both directions.
-     * Units are in engineering units if setConversionFactor() was called 
-     * @param maxVelocity maximum motor velocity in engineering units
-     * @return this NeoServo to facilitate chaining
-     */
-    public NeoServo setMaxVelocity(double maxVelocity) {
-        // defers to setMaxVel() VelocityControlled API, but returns this for config chaining
-        setMaxVel(maxVelocity);
-        return this;
-    }
-
+   
     public SparkBase getController() {
         return ctrl;
     }
 
-    public NeoServo setBrakeMode(IdleMode mode) {        
+    public MaxServo setBrakeMode(IdleMode mode) {        
         SparkMaxConfig cfg = new SparkMaxConfig();
         cfg.idleMode(mode);
         ctrl.configureAsync(cfg, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
         return this;
     }
 
-    /*
-     * VelocityControlled API
-     * 
-     */
     // Servo's position setpoint
     public void setSetpoint(double pos) {
         pos = MathUtil.clamp(pos, MIN_POS, MAX_POS);
-        positionPID.setSetpoint(pos);
-        velocity_mode = false;
-        external_vel_cmd = 0.0;
+        setPoint=pos;
     }
 
     public void setClamp(double min_pos, double max_pos) {
@@ -342,60 +266,9 @@ public class NeoServo implements VelocityControlled {
         MAX_POS = max_pos;
     }
 
-    public boolean isVelocityMode() {
-        return velocity_mode;
-    }
-
-    public double getSetpoint() {
-        return positionPID.getSetpoint();
-    }
-
-    public boolean atSetpoint() {
-        return positionPID.atSetpoint();
-    }
-
-    // Sets the encoder position (Doesn't move anything)
-    public void setPosition(double pos) {
-        posEncoder.setPosition(pos); // tell our encoder we are at pos
-        positionPID.reset(); // clear any history in the pid
-        positionPID.calculate(pos - trim, pos); // tell our pid we want that position; measured, setpoint same
-    }
-
+   
     public double getPosition() {
         return currentPos;
-    }
-
-    public void setMaxVel(double v) {
-        v = Math.abs(v);
-        if (initialMaxVelocity == 0.0)
-            initialMaxVelocity = v; // saving the initial as hard max
-        maxVelocity = (v <= initialMaxVelocity) ? v : initialMaxVelocity;
-    }
-
-    public double getMaxVel() {
-        return maxVelocity;
-    }
-
-    public void setVelocityCmd(double vel) {
-        velocity_mode = true;
-        external_vel_cmd = vel;
-    }
-
-    public double getVelocity() {
-        return currentVel;
-    }
-
-    public double getVelocityCmd() {
-        return velocity_cmd;
-    }
-
-    public void setArbFeedforward(double aff) {
-        // uses percent power, on range of -1. to 1.0
-        if (Math.abs(aff) > 1.0) {
-            DriverStation.reportError("|ArbFF| > 1, check your math. Using ZERO.", true);
-            arbFeedforward = 0.0;
-        } else
-            arbFeedforward = aff;
     }
 
     public void setTrim(double trim) {
@@ -405,15 +278,8 @@ public class NeoServo implements VelocityControlled {
     public double getTrim() {
         return trim;
     }
-
-    public void hold() {
-        external_vel_cmd = 0.0;
-        currentPos = posEncoder.getPosition();
-
-        // set our setpoint, but stay in whatever control mode is being used
-        positionPID.calculate(currentPos, currentPos);
-    }
-
+    
+    //TODO: is this still needed
     public void clearHwPID() {
         ctrl.getClosedLoopController().setIAccum(0.0);
     }
@@ -427,21 +293,12 @@ public class NeoServo implements VelocityControlled {
      *  false => servo is moving correctly
      *  true => servo is stalled for N frames or more, cut the motor in periodic()
      */
-    boolean isStalled() {
-        int direction = (int)Math.copySign(1.0, velocity_cmd);
-        // check stall conditions
-        boolean not_moving = 
-                (Math.abs(velocity_cmd) > positionPID.getErrorDerivativeTolerance()) && // motion requested
-                (Math.abs(currentVel) < positionPID.getErrorDerivativeTolerance()) &&   // motion not seen
-                (!positionPID.atSetpoint()) &&          // not at our goal
-                (prev_direction == direction) &&        // still trying to move in same direction
-                (ctrl.getOutputCurrent() * ctrl.getAppliedOutput() > stall_limit_current) && // drawing high current                          
-                (DriverStation.isEnabled());            // is enabled
-        
-        safety_frame_count = not_moving ? ++safety_frame_count : 0;
-        prev_direction = direction;
-        return safety_frame_count > NO_MOTION_FRAMES;
+    //TODO: reimplement
+    boolean isStalled(){
+        return false;
     }
+       
+
 
     public void periodic() {
         periodic(0.0);
@@ -455,22 +312,6 @@ public class NeoServo implements VelocityControlled {
         currentPos = posEncoder.getPosition() - trim;
         currentVel = encoder.getVelocity();
 
-        // velocity_mode, update position setpoint so we don't jump back on mode switch
-        if (velocity_mode) {
-            // 4/10/2023 dpl positionPID.reset();
-            positionPID.setSetpoint(currentPos);
-        }
-
-        // calculate - run position pid to get velocity
-        velocity_cmd = MathUtil.clamp(positionPID.calculate(currentPos) + compAdjustment, -maxVelocity, maxVelocity);
-
-        // if velocity mode, use external_vel_cmd, otherwise use positionPID
-        velocity_cmd = velocity_mode ? external_vel_cmd + compAdjustment : velocity_cmd;
-
-        // local copy of arbFeedforward incase stall has to zero it and it isn't set
-        // every frame by class user
-        double arbFF = arbFeedforward;
-
         // confirm we are moving and not stalled
         if (isStalled()) {
             // issue stall warning, but not every frame
@@ -483,44 +324,31 @@ public class NeoServo implements VelocityControlled {
                     "  current      =" + ctrl.getOutputCurrent() + "\n" +
                     "  appliedOutput=" + ctrl.getAppliedOutput() + "\n\n", false);
             }
-            // stalled for NO_MOTION_FRAMES frames, stop trying to move                
-            velocity_cmd = 0.0;
-            arbFF = 0.0;             
+            // stalled for NO_MOTION_FRAMES frames, stop trying to move                    
         }
         else {
             // moving, clear the warning counter
             warning_count = 0;
         }
         // potential use of feedforward
-        pid.setReference(velocity_cmd, ControlType.kVelocity, hwVelSlot, arbFF, ArbFFUnits.kPercentOut);
-    }
-
-    public void simulationPeriodic() {
-        // nothing to do if we are not enabled
-        if (!DriverStation.isEnabled())
-            return;
-        // simple model - encoder vel is set in sim when a velocity mode is used
-        // so move the position based on velocity being commanded
-        // no dynamics are modeled
-        double pos = posEncoder.getPosition() + encoder.getVelocity() * Constants.DT;
-        posEncoder.setPosition(pos);
+        pid.setReference(setPoint, ControlType.kMAXMotionPositionControl, hwVelSlot, ArbFFUnits.kPercentOut);
     }
 
     public Command getWatcher() {
-        return new NeoWatcher();
+        return new MaxWatcher();
     }
-
-    class NeoWatcher extends WatcherCmd {
-        NetworkTableEntry nt_arbFF;
+//TODO: update with relevant MAX servo values
+    class MaxWatcher extends WatcherCmd {
         NetworkTableEntry nt_currentPos;
         NetworkTableEntry nt_desiredPos;
-        NetworkTableEntry nt_desiredVel;
-        NetworkTableEntry nt_currentVel;
+        NetworkTableEntry nt_maxVelocity;
+        NetworkTableEntry nt_maxAccel;
+        NetworkTableEntry nt_allowedError;
         NetworkTableEntry nt_trim;
 
         @Override
         public String getTableName() {
-            return name; // from NeoServo
+            return name; // from MaxServo
         }
 
         @Override
@@ -528,9 +356,10 @@ public class NeoServo implements VelocityControlled {
             NetworkTable table = getTable();
             nt_arbFF = table.getEntry("ArbFF");
             nt_currentPos = table.getEntry("Position");
-            nt_currentVel = table.getEntry("Velocity");
+            nt_maxVelocity = table.getEntry("MaxVelocity");
             nt_desiredPos = table.getEntry("PositionCmd");
-            nt_desiredVel = table.getEntry("VelocityCmd");
+            nt_allowedError = table.getEntry("allowedError");
+            nt_maxAccel = table.getEntry("maxAccel");
             nt_trim = table.getEntry("Trim");
 
             // put the a copy on dashboard to edit
@@ -539,11 +368,12 @@ public class NeoServo implements VelocityControlled {
 
         @Override
         public void ntupdate() {
-            nt_arbFF.setDouble(arbFeedforward);
+        
             nt_currentPos.setDouble(getPosition());
-            nt_currentVel.setDouble(getVelocity());
+            nt_maxVelocity.setDouble(getMaxVel());
             nt_desiredPos.setDouble(getSetpoint());
-            nt_desiredVel.setDouble(getVelocityCmd());
+            nt_maxAccel.setDouble(getMaxAccel());
+            nt_allowedError.setDouble(getAllowedError());
             nt_trim.setDouble(trim);
 
             // look for PIDF config changes
