@@ -19,7 +19,7 @@ import edu.wpi.first.wpilibj2.command.Subsystem;
  * subsystems, commands, and trigger mappings) should be declared here.
  */
 public class RobotContainer {
-  public String LIB2202_VERSION = "1.0.3";
+  public String LIB2202_VERSION = "1.0.4";
 
   // The robot's subsystems and commands are defined here...
   static RobotContainer rc;   //singleton
