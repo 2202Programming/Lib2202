@@ -13,7 +13,7 @@ import frc.lib2202.subsystem.swerve.config.ModuleConfig;
 //
 public class RobotSpecDefault implements IRobotSpec {
     // This config does nothing, no subsystems added but will let any new RoboRio
-    // Build
+    // build.
 
     // Robot Speed Limits
     RobotLimits robotLimits = new RobotLimits(
@@ -45,7 +45,7 @@ public class RobotSpecDefault implements IRobotSpec {
     @Override
     public IHeadingProvider getHeadingProvider() {
         return null;  // no sensors in default, example for your bot's Spec:
-        //return RobotContainer.getSubsystem(Sensors_Subsystem.class);
+        //return RobotContainer.getSubsystem(Sensors.class);
     }
 
     @Override
@@ -61,11 +61,6 @@ public class RobotSpecDefault implements IRobotSpec {
     @Override
     public void setBindings() {
         // no bindings
-    }
-
-    @Override
-    public boolean burnFlash() {
-        return false;
     }
 
     @Override

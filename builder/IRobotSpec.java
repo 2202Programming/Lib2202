@@ -4,6 +4,9 @@
 
 package frc.lib2202.builder;
 
+import static edu.wpi.first.units.Units.DegreesPerSecond;
+import static edu.wpi.first.units.Units.FeetPerSecond;
+
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.subsystem.swerve.IHeadingProvider;
@@ -16,30 +19,47 @@ import frc.lib2202.subsystem.swerve.config.ModuleConfig;
 public interface IRobotSpec {
 
     // basic robot speeds
-    public abstract RobotLimits  getRobotLimits();
+    default public RobotLimits getRobotLimits() {
+        RobotLimits robotLimits = new RobotLimits(FeetPerSecond.of(15.0), DegreesPerSecond.of(360.0));
+        return robotLimits;
+    }
 
     // Sensors needed for drivetrain
-    public abstract IHeadingProvider getHeadingProvider();
+    default public IHeadingProvider getHeadingProvider() {
+        return null;
+    }
 
     // swerve specs
-    public abstract ChassisConfig getChassisConfig();
-    public abstract ModuleConfig[] getModuleConfigs();
+    default public ChassisConfig getChassisConfig() {
+        return null;
+    }
+
+    default public ModuleConfig[] getModuleConfigs() {
+        return null;
+    }
 
     // bindings
-    public abstract void setBindings();
+    default public void setBindings() {
+    }
 
-    default public boolean burnFlash(){ return true;};
-
-    // Setup registered commands
-    default public void setupRegisteredCommands() {};
+    // default public boolean burnFlash(){ return true;};
 
     // Setup registered commands
-    default public SendableChooser<Command> getChooser() { return null;};
+    default public void setupRegisteredCommands() {
+    };
 
-    public abstract void setDefaultCommands();
+    // Setup registered commands
+    default public SendableChooser<Command> getChooser() {
+        return null;
+    }
 
-    default public void teleopInit(){}
+    default public void setDefaultCommands() {
+    }
 
-    default public void periodic() {}
+    default public void teleopInit() {
+    }
+
+    default public void periodic() {
+    }
 
 }
