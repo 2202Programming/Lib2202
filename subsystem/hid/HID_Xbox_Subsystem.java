@@ -44,6 +44,7 @@ import frc.lib2202.subsystem.hid.SwitchboardController.SBButton;
  *      Y stick forward will be positive creates positive velocity for that side.
  * 
  */
+@Deprecated
 public class HID_Xbox_Subsystem extends SubsystemBase {
 
   //moved from DriverControls.java
