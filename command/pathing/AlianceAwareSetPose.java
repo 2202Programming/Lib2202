@@ -53,15 +53,10 @@ public class AlianceAwareSetPose extends InstantCommand {
         if (pose == null) {
             return;
         }
-
-        if (DriverStation.getAlliance().get() == Alliance.Blue) {
-            alliancePose = pose;
-        } else {
-            // red, need to flip, static internal to FlippingUtil determines mirror or rotation
-            alliancePose = FlippingUtil.flipFieldPose(pose);
-        }
+        // red needs to flip, static internal to FlippingUtil determines mirror or rotation
+        alliancePose = (DriverStation.getAlliance().get() == Alliance.Blue) ?  pose 
+                            : FlippingUtil.flipFieldPose(pose);     
         call_consumers(alliancePose);
-
         // print what we were set too
         DriverStation.reportWarning("*** AWSetPose() " + alliancePose.toString(), false);
     }

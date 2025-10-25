@@ -17,6 +17,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.builder.RobotContainer;
+import frc.lib2202.command.pathing.AllianceAwareGyroReset;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.subsystem.swerve.IHeadingProvider;
 import frc.lib2202.util.ModMath;
@@ -149,6 +150,9 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
     System.out.println("\t\tSensors measured yaw_bias= " + m_yaw_bias );
     System.out.println("\t\tSensors measured pitch_bias= " + m_pitch_bias );
     System.out.println("\t\tSensors measured roll_bias= " + m_roll_bias );
+    
+    // add callback when gyro changes
+    AllianceAwareGyroReset.AddRotationCallback(this::setRotation2d);
   }
 
   @Override
@@ -307,7 +311,6 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
   /*
    * setYaw() - will do a CAN IO call
    * use setRotation2d() which tracks offset and doesn't use CAN blocking call.
-   * 
    */
   @Deprecated
   public void setYaw(double yawDegrees) {
@@ -350,6 +353,7 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
   /*
    * set the gyro to the new value by adjusting the offset, the actual
    * gyro is not changed. This avoids expensive CAN set call. (100ms worst case)
+   * This is the preferred call.
    */
   public void setRotation2d(Rotation2d newrot) {
     double rawYaw = ModMath.fmod360_2(m_yaw - m_yaw_offset); // take out current offset for raw gyro's yaw
