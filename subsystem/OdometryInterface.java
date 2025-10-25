@@ -22,9 +22,11 @@ public interface OdometryInterface {
 
     // Extend API for vision pose interface - Can this be cleaned up?
     // For some odometry these are non-functional
+    /*
     public default void enableVisionPose() {};
     public default void disableVisionPoseRotation() {};
     public default void enableVisionPoseRotation() {};
     public default boolean useVisionRotation() {return false;};
     public default boolean useVisionPose() {return false;};    
+    */
 }
