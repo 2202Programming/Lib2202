@@ -5,6 +5,7 @@
 package frc.lib2202.subsystem;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.Optional;
 
 import com.ctre.phoenix.led.Animation;
@@ -22,16 +23,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.builder.RobotContainer;
 
 public class BlinkyLights extends SubsystemBase {
-    // variables and constants
-    static final int TO = 50; // [ms] timeout for comms
-
-    // candle frame update rate, larger saves on CAN BUS
-    static final int FrameStatusTime = 200; // [ms]
-
-    //removed static to support multiple uses on different light groups
-    private BlinkyLightUser currentUser = null;
-
-    // Some common colors
+    // Some common m_colors
     static public Color8Bit BLACK = new Color8Bit(0, 0, 0);
     static public Color8Bit WHITE = new Color8Bit(255, 255, 255);
     static public Color8Bit RED = new Color8Bit(255, 0, 0);
@@ -40,48 +32,83 @@ public class BlinkyLights extends SubsystemBase {
     static public Color8Bit ORANGE = new Color8Bit(255, 145, 0);
     static public Color8Bit YELLOW = new Color8Bit(255, 255, 0);
 
-    // State vars, handle N candle sets
-    ArrayList<CANdle> m_candles;
-    ArrayList<Color8Bit> colors;
-    Color8Bit currentColor;
+    static final ArrayList<Color8Bit> EXAMPLE_INDIV_COLORS = new ArrayList<>() 
+        {{
+            add(WHITE); // Candle 0
+            add(ORANGE); // Candle 1 ...            
+        }};
 
-    final BlinkyLightUser defaultUser;
-
-    public BlinkyLights(int... can_ids){
-        m_candles = new ArrayList<CANdle>();
-        colors = new ArrayList<Color8Bit>();
-        defaultUser = new BlinkyLightUser(this) {
-            @Override
-            public Color8Bit colorProvider() {
-                return ORANGE;
-            }
+    public interface IColorProvider {
+        // override with your color functions as desired
+        default public Color8Bit colorProvider() {
+            return null;
         };
 
-        for(int id : can_ids){
+        default public ArrayList<Color8Bit> individualColorProvider() {
+            // overide and return array if you want to set different m_colors to each candle.
+            // most of the time you don't need this
+            return null;
+        };
+
+        default public boolean requestBlink() {
+            return false;
+        }
+
+        default public double requestBrightness(){
+            return 1.0;
+        }
+
+        // robot mode changes
+        default public void onRobotInit() { };
+        default public void onAutomousInit() { };
+        default public void onTeleopInit() { };
+        default public void onTestInit() { };
+    }
+
+    // variables and constants
+    static final int TO = 50; // [ms] timeout for comms
+    // candle frame update rate, larger saves on CAN BUS
+    static final int FrameStatusTime = 200; // [ms]
+
+    // removed static to support multiple uses on different light groups
+    private BlinkyLightUser m_currentUser = null;
+
+    // State vars, handle N candle sets
+    ArrayList<CANdle> m_candles = new ArrayList<CANdle>();
+    ArrayList<Color8Bit> m_colors = new ArrayList<Color8Bit>();   // current colors in candle order
+    double m_bightness;
+    boolean m_blinkstate;
+
+    final BlinkyLightUser  m_defaultUser;
+    final LinkedHashSet<BlinkyLightUser> m_users = new LinkedHashSet<>();
+
+    public BlinkyLights(int... can_ids) {       
+         m_defaultUser = new BlinkyLightUser(this) {
+            @Override
+            public Color8Bit colorProvider() {  return null;
+            }
+        };
+        // initialize devices
+        for (int id : can_ids) {
             var candle = new CANdle(id);
             config(candle);
             m_candles.add(candle);
-            //default color
-            colors.add(WHITE);
+            m_colors.add(BLACK);
         }
-        //set to default user's requests
-        setCurrentUser(defaultUser);
-        setColor(currentUser.colorProvider());
-        setBrightness(1.0);
+        
+        m_currentUser =  m_defaultUser;
     }
-
 
     // blinkylights config
     void config(CANdle cdl) {
         final var StatusFrame = CANdleStatusFrame.CANdleStatusFrame_Status_1_General;
-
         var cfg = new CANdleConfiguration();
         cdl.clearStickyFaults(TO);
         cfg.enableOptimizations = true;
         cdl.configAllSettings(cfg, TO);
 
         // lower CAN bus usage for CANdle
-        var period = cdl.getStatusFramePeriod(StatusFrame);
+        int period = cdl.getStatusFramePeriod(StatusFrame);
         if (period < FrameStatusTime)
             cdl.setStatusFramePeriod(StatusFrame, FrameStatusTime, TO);
 
@@ -89,83 +116,116 @@ public class BlinkyLights extends SubsystemBase {
         cdl.setControlFramePeriod(CANdleControlFrame.CANdle_Control_2_ModulatedVBatOut, FrameStatusTime);
     }
 
-    // methods
-    public void setCurrentUser(BlinkyLightUser user) {
-        currentUser = user;
-    };
+    void AddUser(BlinkyLightUser user){
+        m_users.add(user);
+    }
 
+    void updateSettings(IColorProvider cp) {
+        // read values from cp
+        Color8Bit newColor = cp.colorProvider();
+        ArrayList<Color8Bit> newIndividualColors = cp.individualColorProvider();
+        boolean newBlink = cp.requestBlink();
+        double brightness = cp.requestBrightness();
+
+        // avoid CAN bus traffic if color isn't changing
+        for (int i = 0; i < m_candles.size(); i++) {
+            Color8Bit color = null;
+            if (newIndividualColors != null && i < newIndividualColors.size()) {
+                color = newIndividualColors.get(i);
+            } else {
+                // no entry in list, use single color
+                color = newColor;
+            }
+            // update if different
+            if (color != null && m_colors.get(i) != color)
+                setIndividualColor(i, color);
+            // blink & brightness
+            if (m_blinkstate != newBlink)
+                setBlinking(i, newBlink, m_colors.get(i));
+            if  (m_bightness != brightness)
+                setBrightness(i, brightness);        
+        }
+        // update the state for grouped behavoirs
+        m_blinkstate = newBlink;
+        m_bightness = brightness;
+    }
+
+
+    //gives up control of lights, switch to next user or default.
     public void release() {
-        currentUser = defaultUser;
-        setColor(ORANGE);
+        // find first User Cmd that is scheduled
+        for (BlinkyLightUser u : m_users ){
+            boolean running = (u.watchCmd != null && u.isScheduled() && u.active);
+            if (!running) continue;
+
+            //found someone that wants to run
+            m_currentUser = u;
+            return;
+        }
+        m_currentUser =  m_defaultUser;
     }
 
     /* Static methods to intercept robot state changes */
     public void onRobotInit() {
-        currentUser.onRobotInit();
+        m_currentUser.onRobotInit();
     };
 
     public void onDisabledPeriodic() {
-        // always do our alliance colors
+        // always do our alliance m_colors
         setAllianceColors();
     }
 
     public void onAutomousdInit() {
-        currentUser.onAutomousInit();
+        m_currentUser.onAutomousInit();
     };
 
     public void onTeleopInit() {
-        currentUser.onTeleopInit();
+        m_currentUser.onTeleopInit();
     };
 
     public void onTestInit() {
-        currentUser.onTestInit();
+        m_currentUser.onTestInit();
     };
 
     public void onTestPeriodic() {
-        currentUser.onTestInit();
+        m_currentUser.onTestInit();
     };
 
-    void setColor(Color8Bit color) {
-        for(int i = 0; i < m_candles.size(); i++) {
-            m_candles.get(i).setLEDs(color.red, color.green, color.blue);
-            colors.set(i, color);
-        }  
-        currentColor = color;
-    }
-    void setIndividualColor(int CANdleNum, Color8Bit color) {
-        if (CANdleNum < m_candles.size()) {
-            m_candles.get(CANdleNum).setLEDs(color.red, color.green, color.blue);
-            colors.set(CANdleNum, color);
+    // can be used directly from SS
+    public void setColor(Color8Bit color) {
+        for (int i = 0; i < m_candles.size(); i++) {
+           setIndividualColor(i, color);
         }
     }
 
-    void setBlinking(boolean blink) {
-        if (blink)
-            setBlinking(currentColor);
-        else
-            stopBlinking();
+    public void setIndividualColor(int idx, Color8Bit color) {
+        if (idx < 0 || idx > m_candles.size() - 1) return;
+        if (!differentColors(m_colors.get(idx), color)) return;
+        // different color, update it          
+        m_candles.get(idx).setLEDs(color.red, color.green, color.blue);
+        m_colors.set(idx, color);    
+        
     }
 
-    void setBlinking(Color8Bit color) {
-        Animation animation = new StrobeAnimation(color.red, color.green, color.blue, 0, 0.5, 8);
-        for(CANdle c : m_candles) {
-        c.animate(animation, 0);
+    public void setBlinking(int idx, boolean blink, Color8Bit color) {
+        if (idx < 0 || idx > m_candles.size() - 1) return;
+        CANdle c = m_candles.get(idx);
+        if (blink) {
+            Animation animation = new StrobeAnimation(color.red, color.green, color.blue, 0, 0.5, 8);           
+            c.animate(animation, 0);
         }
-    }
-
-    void stopBlinking() {
-        for(CANdle c : m_candles) {
-        c.clearAnimation(0);
+        else {            
+            c.clearAnimation(0);
         }
     }
 
     /*
      * Brightness on a scale from 0-1, with 1 being max brightness
      */
-    void setBrightness(double brightness) {
-        for(CANdle c : m_candles) {
-            c.configBrightnessScalar(brightness);
-        }        
+    public void setBrightness(int idx, double brightness) {
+        if (idx < 0 || idx > m_candles.size() - 1) return;
+        CANdle c = m_candles.get(idx);
+        c.configBrightnessScalar(brightness);        
     }
 
     public void setAllianceColors() {
@@ -186,7 +246,6 @@ public class BlinkyLights extends SubsystemBase {
                 setColor(RED);
                 break;
             default:
-                setColor(new Color8Bit(0, 255, 0));
                 break;
         }
     }
@@ -196,102 +255,82 @@ public class BlinkyLights extends SubsystemBase {
     }
 
     /**
-     * BlinkyLightUser a command for controllering of the lights
+     * BlinkyLightUser a base command for controllering of the lights.
+     * 
+     * Since only one command can really
      */
-    // commands and sub-systems
-    public static class BlinkyLightUser extends Command {
-
+    public static class BlinkyLightUser extends Command implements IColorProvider {
         final BlinkyLights lights;
+        final UserWatcherCommand watchCmd;
+        boolean active = false;  //true when they want the lights (ie called enable)
+        final String name;
 
         public BlinkyLightUser() {
-            lights = RobotContainer.getObjectOrNull("LIGHTS");
+            this("LIGHTS");
         }
 
-        BlinkyLightUser(BlinkyLights lights) {
-            this.lights = lights;
+        // this version if we have multiple blinkylight sub-systems
+        public BlinkyLightUser(String blinkySSName) {
+            lights = RobotContainer.getObjectOrNull(blinkySSName);
+            watchCmd = (lights != null) ? lights.new UserWatcherCommand(this) : null;
+            name = blinkySSName + ": " + this.getClass().getSimpleName();          
         }
 
-        public void onRobotInit() {
-        };
-
-        public void onAutomousInit() {
-        };
-
-        public void onTeleopInit() {
-        };
-
-        public void onTestInit() {
-        };
-
-        // used in commands, Override to your preferences
-        public Color8Bit colorProvider() {
-            return WHITE;
-        };
-        /**
-         * Used in commands, override as you wish
-         * Order: Color, CANdleNum
-         * @return an object array that contains the Color to set to (first), and secondly, the CANdle number to set to
-         */
-        public ArrayList<Object> individualColorProvider() {
-            ArrayList<Object> arr = new ArrayList<>();
-            arr.add(WHITE);
-            arr.add(0);
-            return arr;
-        };
-
-        // used in commands, Override to your preferences
-        public boolean requestBlink() {
-            return false;
+        //used for SubSystem's default user cmd
+        BlinkyLightUser(BlinkyLights blss){
+            lights = blss;
+            watchCmd = null;
+            name = blss.getClass().getSimpleName();
         }
 
+        // call this to have your command take over the lights
         public void enableLights() {
             // user is a Command, setup a parallel cmd to get the color info
-            if (lights != null) {
-                var watchCmd = lights.new UserWatcherCommand(this);
+            if (watchCmd != null) {
+                // calls updateSettings(color provider)                
                 watchCmd.schedule();
+                active = true;  //wants the lights
             }
-
         }
-    } // blinkylights user
+        // call this to give up lights early
+        public void disableLights(){
+            active = false;
+            if (watchCmd !=null) {
+                watchCmd.cancel();
+                lights.release();                
+            }
+        }    
+    } // blinkylightsUser
 
-    class UserWatcherCommand extends Command {
-        Color8Bit currentColor;
-        boolean blinkState;
+    // CP UserWatcherCommands are bound to a BlinkyLiight SS, so non-static
+    // They periodicly call updateSettings() reading IColorProvider method
+    // implemented by the parent.
+    protected class UserWatcherCommand extends Command {       
         final BlinkyLightUser myUser; // a command that is using the lights
-        final Command watcherCmd; // a watcher to get values to the CANdles periodically
-
+        int callCount = 0;
+        
         UserWatcherCommand(BlinkyLightUser user) {
             myUser = user;
-            watcherCmd = this;
-            currentColor = user.colorProvider();
+            AddUser(user);
+        }
+
+        @Override
+        public void initialize() {
+            callCount = 0;
         }
 
         /*
-         * Reads providers and send to CANDles.
-         * 
-         * This can could be setup to happen less frequently
+         * Reads providers and sends m_colors to CANDles.
+         * updates done at 5hz.
          */
         @Override
         public void execute() {
-            Color8Bit newColor = myUser.colorProvider();
-            Color8Bit newIndividualColor = (Color8Bit) myUser.individualColorProvider().get(0);
-            // avoid CAN bus traffic if color isn't changing
-            for(int i = 0; i < m_candles.size(); i++) {
-                if (colors.get(i) != newIndividualColor) {
-                    setIndividualColor((int) myUser.individualColorProvider().get(1), newIndividualColor);
-                }
-            }
-            if (!currentColor.equals(newColor)) {
-                currentColor = newColor;
-                setColor(currentColor);
-            }
-            if (myUser.requestBlink() != blinkState) {
-                blinkState = myUser.requestBlink();
-                setBlinking(blinkState);
-            }
+            // only update lights if this is current user
+            if (callCount++ % 10 == 0  && myUser == m_currentUser)
+                updateSettings(myUser);
         }
 
-        // watcher should always be able to
+        // watcher follows should always be able to
         @Override
         public boolean runsWhenDisabled() {
             return myUser.runsWhenDisabled();
@@ -299,7 +338,7 @@ public class BlinkyLights extends SubsystemBase {
 
         @Override
         public void end(boolean interrupted) {
-            release();
+            myUser.disableLights();
         }
 
         @Override
@@ -307,5 +346,6 @@ public class BlinkyLights extends SubsystemBase {
             // run until my parent command is done
             return !myUser.isScheduled();
         }
-    }
+    } //UserWatcherComand
+
 }
