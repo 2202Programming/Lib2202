@@ -47,7 +47,7 @@ public abstract class BaseLimelight extends SubsystemBase {
     static final int RY = 4;
     static final int RZ = 5;
 
-    protected long pipeline;
+    protected int pipeline;
 
     //@SuppressWarnings("unused")
     protected LinearFilter x_iir;
@@ -218,7 +218,7 @@ public abstract class BaseLimelight extends SubsystemBase {
         }
     }
 
-    public long getPipeline() {
+    public int getPipeline() {
         return pipeline;
     }
 
