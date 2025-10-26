@@ -3,6 +3,8 @@ package frc.lib2202.subsystem;
 import static frc.lib2202.Constants.DEGperRAD;
 import static frc.lib2202.Constants.DT;
 
+import java.util.function.Function;
+
 import com.ctre.phoenix6.hardware.Pigeon2;
 import com.ctre.phoenix6.sim.Pigeon2SimState;
 
@@ -17,6 +19,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.builder.RobotContainer;
+import frc.lib2202.command.WatcherCmd;
 import frc.lib2202.command.pathing.AllianceAwareGyroReset;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.subsystem.swerve.IHeadingProvider;
@@ -55,8 +58,7 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
   private NetworkTableEntry nt_roll_dot;
   private NetworkTableEntry nt_pitch;
   private NetworkTableEntry nt_pitch_dot;
-  private NetworkTableEntry nt_rotation;
-
+  
   // Sensors & CAN monitoring
   Pigeon2 m_pigeon;
   CANStatus m_canStatus;
@@ -70,10 +72,10 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
   double m_roll_d;
   double m_pitch;
   double m_pitch_d;
-  double m_yaw;         //includes offset
-  double m_yaw_offset;  //avoid CAN io, so track offset on resetting gyro
-  double m_yaw_Z;  //uses pigeon.getYaw, debugging
-  double m_yaw_d;
+  double m_yaw;         //[deg] includes offset forced to +-180
+  double m_yaw_offset;  //[deg] avoid CAN io, so track offset on resetting gyro
+  double m_yaw_Z;       //[deg] uses pigeon.getYaw, debugging [deg]
+  double m_yaw_d;       //[deg/s]
   
   //accelerations
   double m_Xaccel;
@@ -111,7 +113,7 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
     nt_canRxError = table.getEntry("CanRxError");
     nt_canTxError = table.getEntry("CanTxError");
 
-    nt_rotation = table.getEntry("Rotation");
+    //nt_rotation = table.getEntry("Rotation");
     nt_pitch = table.getEntry("Pitch");
     nt_roll = table.getEntry("Roll");
     nt_yaw = table.getEntry("Yaw");
@@ -178,7 +180,7 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
     m_pitch_d = m_pigeon.getAngularVelocityYWorld(false).getValueAsDouble();
     m_yaw_d = m_pigeon.getAngularVelocityZWorld(true).getValueAsDouble();
    
-    // read accelerations
+    // read accelerations - these are in g, correct for angle then convert / to m/s2
     m_Xaccel = m_pigeon.getAccelerationX(false).getValueAsDouble();
     m_Yaccel = m_pigeon.getAccelerationY(false).getValueAsDouble();
     m_Zaccel = m_pigeon.getAccelerationZ(false).getValueAsDouble();
@@ -205,9 +207,12 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
     simPigeon.setAngularVelocityZ(yaw_rate);
     
   }
-
+   
 
   public void log() {
+    //grab rounding funcs from watcher, todo make this use watchercmd apply() not needed then
+    final Function<Double,Double> fmt2 = WatcherCmd::fmt2;
+    final Function<Double,Double> fmt2Deg = WatcherCmd::fmt2toDeg;
     if ((log_counter++ % NT_UPDATE_FRAME) == 0) {
 
       CANJNI.getCANStatus(m_canStatus);
@@ -215,18 +220,18 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
       nt_canRxError.setNumber(m_canStatus.receiveErrorCount);
       nt_canTxError.setNumber(m_canStatus.transmitErrorCount);
 
-      nt_yaw.setDouble(getYaw());
-      nt_yaw_offset.setDouble(m_yaw_offset);
-      nt_yaw_Z.setDouble(m_yaw_Z);
+      nt_yaw.setDouble(fmt2.apply(getYaw()));
+      nt_yaw_offset.setDouble(fmt2.apply(m_yaw_offset));
+      nt_yaw_Z.setDouble(fmt2.apply(m_yaw_Z));    //should be deg already
   
-      //
-      nt_rotation.setDouble(getRotation2d().getDegrees());
-      nt_roll.setDouble(getRoll());
-      nt_pitch.setDouble(getPitch());
-
-      nt_yaw_dot.setDouble(getYawRate());
-      nt_roll_dot.setDouble(getRollRate());
-      nt_pitch_dot.setDouble(getPitchRate());
+      //yaw, roll, pitch
+      //nt_rotation.setDouble(fmt2.apply(getRotation2d().getDegrees()));
+      nt_roll.setDouble(fmt2Deg.apply(getRoll()));
+      nt_pitch.setDouble(fmt2Deg.apply(getPitch()));
+      // and their rates
+      nt_yaw_dot.setDouble(fmt2.apply(getYawRate()));
+      nt_roll_dot.setDouble(fmt2.apply(getRollRate()));
+      nt_pitch_dot.setDouble(fmt2.apply(getPitchRate()));
     }
   }
 
@@ -291,18 +296,20 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
    * Return the heading of the robot in degrees.
    *
    * <p>
-   * The angle is continuous, that is it will continue from 360 to 361 degrees.
-   * This allows algorithms that wouldn't want to see a discontinuity in the gyro
-   * output as it sweeps past from 360 to 0 on the second time around.
-   *
+   * The heading angle, yaw, is on range -180 to +180. The pigeon's continuous,
+   * angle is converted via ModMath.fmod360_2() thus +180 deg range. Algorithms must
+   * deal with the discontinuity.  WPILib PID can be setup to deal with discontinuties.
+   * <p>
+   * In global coordinate terms this means:
+   *    0 -> heading away from Blue.
+   *  180 -> heading away from Red.
    * <p>
    * The angle is expected to increase as the gyro turns clockwise when looked at
    * from the top. It needs to follow the NED axis convention.
-   *
    * <p>
    * This heading is based on integration of the returned rate from the gyro.
    *
-   * @return the current heading of the robot in degrees.
+   * @return current heading of the robot in degrees. (+/- 180)
    */
   public double getYaw() {
     return m_yaw;
@@ -328,19 +335,10 @@ public class Sensors extends SubsystemBase implements IHeadingProvider {
    * {@link edu.wpi.first.math.geometry.Rotation2d}.
    *
    * <p>
-   * The angle is continuous, that is it will continue from 360 to 361 degrees.
-   * This allows
-   * algorithms that wouldn't want to see a discontinuity in the gyro output as it
-   * sweeps past from
-   * 360 to 0 on the second time around.
-   *
+   * Rotation2d created from getYaw() so uses same conventions and (+-)180 range.
    * <p>
    * The angle is expected to increase as the gyro turns counterclockwise when
-   * looked at from the
-   * top. It needs to follow the NWU axis convention.
-   *
-   * <p>
-   * This heading is based on integration of the returned rate from the gyro.
+   * looked at from the top. It needs to follow the NWU axis convention.
    *
    * @return the current heading of the robot as a 
    *   {@link edu.wpi.first.math.geometry.Rotation2d}.
