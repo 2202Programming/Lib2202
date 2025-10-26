@@ -8,12 +8,15 @@
 package frc.lib2202.subsystem.hid;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.CommandGenericHID;
 import edu.wpi.first.wpilibj2.command.button.CommandPS4Controller;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import frc.lib2202.command.WatcherCmd;
 import frc.lib2202.subsystem.hid.SwitchboardController.SBButton;
 
 import java.util.function.DoubleSupplier;
@@ -117,8 +120,6 @@ public class HID_Subsystem extends SubsystemBase {
   double scale_xy = 1.0;
   double scale_rot = 1.0;
 
-
-
   //XYRot / Swerve (field or robot relative)
   ExpoShaper velXShaper;    // left/right
   ExpoShaper velYShaper;    // forward/backward
@@ -129,7 +130,7 @@ public class HID_Subsystem extends SubsystemBase {
   double vel, z_rot;           //arcade
   double velLeft, velRight;    //tank
   double velX,velY, xyRot;     //XTRot
-  final double deadzone;;
+  final double deadzone;
 
   // invertGain is used to change the controls for driving backwards easily.
   // A negative value indicates you're driving backwards with forwards controls.
@@ -189,19 +190,6 @@ public class HID_Subsystem extends SubsystemBase {
   public CommandGenericHID Operator() {return operator;}
   public CommandSwitchboardController SwitchBoard() {return switchBoard; }
  
-  /**
-   * constructor of the implementing class.
-   * 
-   * @param id  Id.Driver, Id.Assistent, Id.Sideboard
-   * @param hid Input device, xbox or other stick
-   * @return
-  
-  public CommandGenericHID registerController(Id id, CommandGenericHID hid) {
-    deviceMap.put(id, hid);
-    return hid;
-  }
-  unused dpl */
-
   @Override
   public void periodic() {
     // This method will be called once per scheduler frame and read all stick inputs
@@ -214,10 +202,10 @@ public class HID_Subsystem extends SubsystemBase {
     velY = -(velYShaper.get() * scale_xy);     //invert, so forward stick is positive, increase X
     xyRot = -(swRotShaper.get() * scale_rot);  //invert, so positive is CCW
   }
-  
-  //public void setLimitRotation(boolean enableLimit) {
-  //  this.limitRotation = enableLimit;
-  //}
+
+  public void startWatcher() {
+    this.new HIDMonitorCmd();
+  }
 
   public double getVelocityX() {
     return velX;
@@ -364,6 +352,40 @@ static <T extends CommandGenericHID> T create_hid_device(Id port){
     }
     // otherwise use xbox
     return (T) new CommandXboxController(port.value);
+  }
+
+
+  public class HIDMonitorCmd extends WatcherCmd {
+    NetworkTableEntry nt_X_cmd;
+    NetworkTableEntry nt_Y_cmd;
+    NetworkTableEntry nt_Rot_cmd;
+    NetworkTableEntry nt_scale;
+    
+    public HIDMonitorCmd() {}
+
+    @Override
+    public String getTableName() {
+      return "HID";
+    }
+
+    @Override
+    public void ntcreate() {
+      NetworkTable MonitorTable = getTable();
+      
+      nt_X_cmd = MonitorTable.getEntry("driver_shaped/VX_cmd");
+      nt_Y_cmd = MonitorTable.getEntry("driver_shaped/VY_cmd");
+      nt_Rot_cmd = MonitorTable.getEntry("driver_shaped/VRot_cmd");
+      nt_scale = MonitorTable.getEntry("driver_shaped/scale");
+    }
+
+    @Override
+    public void ntupdate() {
+      nt_X_cmd.setDouble(Math.round(velX*100.0)/100.0);
+      nt_Y_cmd.setDouble(Math.round(velY*100.0)/100.0) ;
+      nt_Rot_cmd.setDouble(Math.round(xyRot*100.0)/100.0) ;
+      nt_scale.setDouble(scale_xy);
+    }
+    
   }
 
 }
