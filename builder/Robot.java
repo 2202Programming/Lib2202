@@ -40,14 +40,17 @@ public class Robot extends TimedRobot {
 
   @Override
   public void disabledInit() {
+    m_IRobotSpec.disabledInit();
   }
 
   @Override
   public void disabledPeriodic() {
+    m_IRobotSpec.disabledPeriodic();
   }
 
   @Override
   public void disabledExit() {
+    m_IRobotSpec.disabledExit();
   }
 
   @Override
@@ -65,6 +68,7 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousExit() {
+    m_IRobotSpec.autonomousExit();
   }
 
   @Override
@@ -82,6 +86,7 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopExit() {
+    m_IRobotSpec.teleopExit();
   }
 
   @Override
@@ -117,7 +122,7 @@ public class Robot extends TimedRobot {
     
     // clean up working rootDir so the working dir's pathplanner is not poluted (important for sim)
     deleteDirectory(Paths.get(rootDir + "/pathplanner"));
-    
+
     System.out.println("Copying files from ." + robot_deploy_dir + " to " + rootDir);
     // Traverse the tree, copy each file/directory from specific Robot deploy, e.g. chadbot, 2024, 2025...
     try {

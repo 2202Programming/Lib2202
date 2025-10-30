@@ -66,11 +66,20 @@ public interface IRobotSpec {
     default public void setDefaultCommands() {
     }
 
+    // Most of the time these are not needed, but you can override them in your robot's 
+    // spec file on rare cases you want to have code run on mode init or exit.
+
     //Overide these in you robot spec file if you need to insert code on mode changes
-    default public void teleopInit() {
-    }
+    // there are a few other cutpoints (code shims), add if needed.
+    default public void teleopInit() { }
+    default public void teleopExit() { }
 
-    default public void periodic() {
-    }
+    default public void periodic() { }
 
+    default public void disabledExit() {}
+    default public void disabledInit() {}
+    default public void disabledPeriodic() {}
+    
+    default public void autonomousInit() {}
+    default public void autonomousExit() {}
 }
