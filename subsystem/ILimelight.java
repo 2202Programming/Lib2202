@@ -70,4 +70,7 @@ public interface ILimelight {
     public void setUseIMU(boolean use_imu);
     public IMUData getIMU();
 
+    //if supported, allow switching frame processing rates.
+    default public void lowPowerMode() {}
+    default public void normalPowerMode() {}
 }
