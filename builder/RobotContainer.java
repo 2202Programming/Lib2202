@@ -96,6 +96,13 @@ public class RobotContainer {
     String serialnum =  System.getenv("serialnum");
     m_subsystemConfig = SubsystemConfig.SetConfig(serialnum);
     IRobotSpec spec = getRobotSpecs();
+
+    // Copy deploy files to root if required
+    String deploy_dir = spec.getDeployDirectory();
+    if (deploy_dir != null) {
+      Robot.copyFiles(deploy_dir);
+    }
+
     SubsystemConfig.constructAll();
     // Quiet some of the noise
     DriverStation.silenceJoystickConnectionWarning(true);

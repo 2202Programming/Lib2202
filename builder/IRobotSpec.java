@@ -38,6 +38,16 @@ public interface IRobotSpec {
         return null;
     }
 
+    // deploy directory - this is only needed when supporting multiple robot and
+    // there data is in a sub-folder of deploy, typically the year "2025" and imported
+    // into a multi-year repo. 
+    // If overidden, contents like pathplaner are copied up one level at during init
+    // so pathing folder and other data are in the expected location for that robot.
+    // See TODO...
+    default public String getDeployDirectory() {
+        return null;
+    }
+
     // bindings
     default public void setBindings() {
     }
@@ -56,6 +66,7 @@ public interface IRobotSpec {
     default public void setDefaultCommands() {
     }
 
+    //Overide these in you robot spec file if you need to insert code on mode changes
     default public void teleopInit() {
     }
 
