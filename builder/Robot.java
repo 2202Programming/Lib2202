@@ -29,6 +29,8 @@ public class Robot extends TimedRobot {
   public void robotInit() {
     m_robotContainer = new RobotContainer();
     m_IRobotSpec = RobotContainer.getRobotSpecs();
+    //everything is constructed, call our postRobotInit()
+    m_IRobotSpec.postRobotInit();
   }
 
   @Override

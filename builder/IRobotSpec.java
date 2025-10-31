@@ -71,10 +71,20 @@ public interface IRobotSpec {
 
     //Overide these in you robot spec file if you need to insert code on mode changes
     // there are a few other cutpoints (code shims), add if needed.
-    default public void teleopInit() { }
-    default public void teleopExit() { }
 
-    default public void periodic() { }
+    /*
+     * postRobotInit() - Use to do any one-time setup needed after construction 
+     * is complete.
+     * 
+     * This is a good place go get object/subsystem references used for robot mode
+     * init/exit calls.
+     */
+    default public void postRobotInit() {}
+
+    default public void teleopInit() {}
+    default public void teleopExit() {}
+
+    default public void periodic() {}
 
     default public void disabledExit() {}
     default public void disabledInit() {}
