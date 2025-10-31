@@ -6,6 +6,9 @@ import frc.lib2202.subsystem.LimelightHelpers.IMUData;
 
 // fairly complete set of commads to support various LL modes,
 // a composite of what we've used over past few years.
+// Some simple api are implemented here, complex or stateful usage is
+// handled in the subsystem implementing interface.
+//
 public interface ILimelight {
 
     public class Retro {
@@ -48,29 +51,59 @@ public interface ILimelight {
     public boolean getTargetValid();
 
     // Access the MT data
-    public LimelightHelpers.PoseEstimate getMt1();    
-    public LimelightHelpers.PoseEstimate getMt2();
+    public LimelightHelpers.PoseEstimate getMt1(); //doesn't require orientation updates
+    public LimelightHelpers.PoseEstimate getMt2(); // must use orientation updates, or at least 1 seed with internal IMU
     public void setRobotOrientation(Rotation2d heading);  // must call atleast once, depending on imu_mode
     
     // access reflector & pipeline
-    public void setPipeline(int pipe);
-    public int getPipeline();
+    default public void setPipeline(int pipe) {
+        LimelightHelpers.setPipelineIndex(getLLName(), pipe);
+    }
+
+    default public int getPipeline(){
+        return (int)LimelightHelpers.getCurrentPipelineIndex(getLLName());
+    }
+
     public int setRetroPipeline(int new_retro_pipe);
     public int setMTPipeline(int new_mt_pipe);
     public void resetDefaultPipelines();
-    public void enableLED();
-    public void disableLED();
-    public boolean getLEDStatus();
+    
+
+    default public void enableLED() {
+        LimelightHelpers.setLEDMode_ForceOn(getLLName());
+    }
+    
+    default public void disableLED() {
+        LimelightHelpers.setLEDMode_ForceOff(getLLName());
+    }
+
+    default public boolean getLEDStatus(){
+        //anything other that 1 should be some flavor of on
+        return 1.0 != LimelightHelpers.getLimelightNTDouble(getLLName(), "ledMode");
+    }
+
     public Retro getRetro();
     public boolean getRetroValid();
 
     // IMU for LL4
-    public void setIMUMode(int mode); // LL4 modes, ignored on older LL.
-    public int getIMUMode();
+    default public void setIMUMode(int mode) {
+        // LL4 modes, ignored on older LL.
+        LimelightHelpers.SetIMUMode(getLLName(), mode);        
+    }
+
+    default public int getIMUMode(){
+        //reads same table entry that set uses 
+        return (int)LimelightHelpers.getLimelightNTDouble(getLLName(), "imumode_set");
+    }
     public void setUseIMU(boolean use_imu);
     public IMUData getIMU();
 
     //if supported, allow switching frame processing rates.
-    default public void lowPowerMode() {}
-    default public void normalPowerMode() {}
+    default public void lowPowerMode() {
+        LimelightHelpers.SetThrottle(getLLName(), 200);  //skips 200 frames between updates
+    }
+
+    default public void normalPowerMode() {
+        LimelightHelpers.SetThrottle(getLLName(), 0); 
+    }
 }

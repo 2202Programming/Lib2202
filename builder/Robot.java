@@ -118,12 +118,12 @@ public class Robot extends TimedRobot {
   // The working pathplanner folder is deleted before the copy.
   static void copyFiles(String robot_deploy_dir){
     Path rootDir = Filesystem.getDeployDirectory().toPath();
-    Path sourceDir = Paths.get( rootDir + robot_deploy_dir); // robot specific 
+    Path sourceDir = Paths.get( rootDir + robot_deploy_dir +"/deploy"); // robot specific deploy
     
     // clean up working rootDir so the working dir's pathplanner is not poluted (important for sim)
     deleteDirectory(Paths.get(rootDir + "/pathplanner"));
 
-    System.out.println("Copying files from ." + robot_deploy_dir + " to " + rootDir);
+    System.out.println("Copying from " + sourceDir + " --> " + rootDir);
     // Traverse the tree, copy each file/directory from specific Robot deploy, e.g. chadbot, 2024, 2025...
     try {
       Files.walk(sourceDir)
@@ -131,7 +131,7 @@ public class Robot extends TimedRobot {
         .forEach(sourcePath -> {
            try {
               Path targetPath = rootDir.resolve(sourceDir.relativize(sourcePath));
-              //System.out.printf("\tCopying %s to %s%n", sourcePath, targetPath);
+              System.out.printf("\tCopying %s to %s%n", sourcePath, targetPath);
               Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
            } catch (IOException ex) {
                System.out.format("I/O error: %s%n", ex);
