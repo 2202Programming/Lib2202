@@ -114,22 +114,30 @@ public class Robot extends TimedRobot {
   public void simulationPeriodic() {
   }
 
-  // Copies are made to move specific robot's deploy folder to root location.
+  // Copies are made from specific robot's deploy folder to root deploy/.
   // For example deploy/2025 gets 2025 folder contents copied one dir up.
-  // deploy/2025/pathplanner --> deploy/pathplanner.
+  // deploy/2025/deploy/pathplanner --> deploy/pathplanner.
   // The working pathplanner folder is deleted before the copy.
+  // other regular files are cleaned up from /home/lvuser/deploy/ as well.
+  //
+  // Note - works for Sim, but for hardware /home/lvuser/deploy must be owned
+  //        by lvuser.  See deploy/readme_priorbots.txt
+  //
   static void copyFiles(String robot_deploy_dir){
     Path rootDir = Filesystem.getDeployDirectory().toPath();
-    Path sourceDir = Paths.get( rootDir + robot_deploy_dir +"/deploy"); // robot specific deploy
+    Path sourceDir = Paths.get( rootDir + "/" + robot_deploy_dir +"/deploy"); // robot specific deploy
     
-    // clean up working rootDir so the working dir's pathplanner is not poluted (important for sim)
+    // clean up working rootDir so the working dir's pathplanner/ is not poluted (important for sim)
+    // if other folders need cleanup in the deploy root, add them here.
     deleteDirectory(Paths.get(rootDir + "/pathplanner"));
+    //also remove any extra files in the root directory before we copy the bot's deploy folder
+    deleteFiles(rootDir);
 
     System.out.println("Copying from " + sourceDir + " --> " + rootDir);
     // Traverse the tree, copy each file/directory from specific Robot deploy, e.g. chadbot, 2024, 2025...
     try {
       Files.walk(sourceDir)
-        .filter(p -> !p.equals(sourceDir)) //prevent IOEx on first target
+        .filter(p -> !p.equals(sourceDir)) //prevent IOEx on first target, 'deploy/'
         .forEach(sourcePath -> {
            try {
               Path targetPath = rootDir.resolve(sourceDir.relativize(sourcePath));
@@ -162,5 +170,24 @@ public class Robot extends TimedRobot {
      //don't care if folder was already deleted
     }
   }
+
+  static void deleteFiles(Path dir) {
+    System.out.format("Deleting %s files, sub-folders are untouched. %n", dir);
+    try ( var dirStream  = Files.list(dir) ) {
+        dirStream.filter(Files::isRegularFile )
+        .forEach(file -> {
+          try {
+            Files.delete(file);
+          } catch (IOException e) {
+            System.out.format("\tCould not delete '%s' .%n", file);
+          }
+        });
+    }
+    catch (IOException e){
+      System.out.format("\tcould not get directory of '%s' %n", dir);
+    }
+  }
+
+
 
 }
