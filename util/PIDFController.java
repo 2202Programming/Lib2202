@@ -73,7 +73,7 @@ public class PIDFController extends PIDController {
      * @see <a href="https://docs.revrobotics.com/revlib/spark/closed-loop/getting-started-with-pid-tuning">Getting Started With PID Tuning</a>
      */
     public PIDFController(double Kp, double Ki, double Kd, double Kf) {
-        this(Kp, Ki, Kd, Kf, DT,"");
+        this(Kp, Ki, Kd, Kf, DT,"");        
     }
 
     /**
@@ -124,6 +124,21 @@ public class PIDFController extends PIDController {
         setF(Kf);
         setName(m_name);       
     }
+
+    /* copy ctor */
+    public PIDFController(PIDFController original) {
+        super(original.getP(), original.getI(), original.getD() );
+        setF(original.m_Kf);
+        hw_controller = original.hw_controller;
+        hw_config = original.hw_config;
+        m_smartMaxVel = original.m_smartMaxVel;
+        m_smartMaxAccel = original.m_smartMaxAccel;
+        m_name = original.m_name;
+        this.setIZone(original.getIZone());
+        this.setSetpoint(original.getSetpoint());
+        // needs to reset continous after copy, vars hidden by private
+    }
+
 
     /**
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
@@ -176,7 +191,7 @@ public class PIDFController extends PIDController {
      */
     @Override
     public double calculate(double measurement) {
-        return calculate(measurement, getSetpoint());
+        return super.calculate(measurement) + (m_Kf * getSetpoint());
     }
 
     /**

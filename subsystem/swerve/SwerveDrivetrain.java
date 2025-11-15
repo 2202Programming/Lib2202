@@ -26,6 +26,7 @@ import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.lib2202.builder.Robot;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.command.WatcherCmd;
 import frc.lib2202.subsystem.swerve.config.ChassisConfig;
@@ -125,6 +126,7 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     meas_states = kinematics.toSwerveModuleStates(speedsRC);
     offsetDebug();
     getWatcher();
+    simulationInit();
   }
 
   /**
@@ -232,17 +234,13 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   static boolean simInit = false;
   // simple model for testing
   public void simulationInit() {
-    for (int i = 0; i < modules.length; i++) {
-      modules[i].simulationInit();
-    }
+    if (!Robot.isSimulation()) return;   //skip sim on real  
+    
   }
 
   @Override
   public void simulationPeriodic() {
-    if (!simInit) {
-      simulationInit();
-      simInit = true;
-    }
+    // no real physics, modules will get cmd'ed vel and angles  
     for (int i = 0; i < modules.length; i++) {
       modules[i].simulationPeriodic();
     }
@@ -256,7 +254,7 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   public void setPositions(double position) {
     for (int i = 0; i < modules.length; i++) {
       // module state/encoder
-      modules[i].setPosition(position);
+      modules[i].setDrivePosition(position);
       // our local position copy
       meas_pos[i].distanceMeters = position;
     }
@@ -326,15 +324,10 @@ public class SwerveDrivetrain extends DriveTrainInterface {
    * the modules.
    */
   public class SwerveMonitorCmd extends WatcherCmd {
-
     // chassis velocity
     NetworkTableEntry nt_radiansPerSecond;
     NetworkTableEntry nt_xMetersPerSec;
     NetworkTableEntry nt_yMetersPerSec;
-    NetworkTableEntry nt_speeds;
-    NetworkTableEntry nt_speedsDesc;
-
-    NetworkTableEntry nt_deltas;
     
     public SwerveMonitorCmd() {
 
@@ -355,16 +348,14 @@ public class SwerveDrivetrain extends DriveTrainInterface {
       nt_radiansPerSecond = MonitorTable.getEntry("Vrot");
       nt_xMetersPerSec = MonitorTable.getEntry("Vx ");
       nt_yMetersPerSec = MonitorTable.getEntry("Vy ");
-      nt_speeds = MonitorTable.getEntry("speeds");
     }
 
     @Override
     public void ntupdate() {
       // robot coordinates - speeds
-      nt_radiansPerSecond.setDouble(speedsRC.omegaRadiansPerSecond * DEGperRAD);
-      nt_xMetersPerSec.setDouble(speedsRC.vxMetersPerSecond);
-      nt_yMetersPerSec.setDouble(speedsRC.vyMetersPerSecond);
-      nt_speeds.setString(speedsRC.toString());
+      nt_radiansPerSecond.setDouble(fmt2(speedsRC.omegaRadiansPerSecond * DEGperRAD));
+      nt_xMetersPerSec.setDouble(fmt2(speedsRC.vxMetersPerSecond));
+      nt_yMetersPerSec.setDouble(fmt2(speedsRC.vyMetersPerSecond));      
     }
   }
 }

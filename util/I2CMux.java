@@ -4,7 +4,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.I2C.Port;
 
-public class Mux {
+public class I2CMux {
   // address of mux
   private final int address;
 
@@ -19,7 +19,7 @@ public class Mux {
    * 
    * @param address The address of the bus
    */
-  public Mux(int address) {
+  public I2CMux(int address) {
     this.address = address;
     i2c = new I2C(Port.kOnboard, this.address);
   }
@@ -27,7 +27,7 @@ public class Mux {
   /**
    * Constructs the multiplexer with a default address
    */
-  public Mux() {
+  public I2CMux() {
     // Default address for the common PCB available
     this(0x70);
   }

@@ -2,6 +2,7 @@ package frc.lib2202.subsystem.swerve;
 
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.hardware.CANcoder;
+import com.ctre.phoenix6.sim.CANcoderSimState;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
@@ -19,27 +20,32 @@ import com.revrobotics.REVLibError;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.sim.SparkFlexSim;
 import com.revrobotics.sim.SparkMaxSim;
+import com.revrobotics.sim.SparkRelativeEncoderSim;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkFlex;
 
-import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.units.BaseUnits;
 import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.Constants;
 import frc.lib2202.builder.IRobotSpec;
+import frc.lib2202.builder.Robot;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.builder.RobotLimits;
+import frc.lib2202.command.WatcherCmd;
 import frc.lib2202.subsystem.swerve.config.ChassisConfig;
 import frc.lib2202.util.ModMath;
 import frc.lib2202.util.PIDFController;
 import static frc.lib2202.Constants.DEGperRAD;
+import static frc.lib2202.Constants.DT;
 
 public class SwerveModuleMK3 {
   public final String NT_Name = "DriveModules";
@@ -48,8 +54,6 @@ public class SwerveModuleMK3 {
 
   // PID slot for angle and drive pid on SmartMax controller
   final ClosedLoopSlot kSlot = ClosedLoopSlot.kSlot0;
-
-  private int frameCounter = 0;
 
   // Chassis config used for geometry and pathing math
   private final ChassisConfig cc;
@@ -88,8 +92,9 @@ public class SwerveModuleMK3 {
   double m_externalAngle; // measured CANCoder bounded +/-180 [deg]
   double m_velocity; // measured velocity [wheel's-units/s] [m/s]
   double m_position; // measure wheel positon for calibraiton [m]
-  double m_angle_target; // desired angle unbounded [deg]
-  double m_vel_target; // desired velocity [wheel's-units/s] [m/s]
+  double m_angle_target; // desired angle bounded, from state [deg]
+  double m_angle_delta;  // delta angle being commanded [deg]
+  double m_vel_target;   // desired velocity [wheel's-units/s] [m/s]
   /**
    * SwerveModuleMK3 -
    * 
@@ -164,7 +169,7 @@ public class SwerveModuleMK3 {
     driveMotor.configure(driveCfg, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     driveMotorPID = driveMotor.getClosedLoopController();
     driveEncoder = driveMotor.getEncoder();   
-    setPosition(0.0);
+    setDrivePosition(0.0);
     
     sleep(100);
     // Angle Motor config
@@ -178,14 +183,16 @@ public class SwerveModuleMK3 {
     angleCfg.closedLoop.feedbackSensor(FeedbackSensor.kPrimaryEncoder);
 
     //finish angle controller
-    cc.anglePIDF.copyTo(angleMtr, angleCfg, kSlot); // position mode
+    cc.anglePIDF.copyTo(angleMtr, angleCfg, kSlot);
     angleMotor.configure(angleCfg, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     angleMotorPID = angleMotor.getClosedLoopController();
     angleEncoder = angleMotor.getEncoder();
 
-    NTPrefix = "/MK3-" + myprefix;
-    NTConfig();
+    NTPrefix = "MK3-" + myprefix + " CAN(ang=" + angleMtr.getDeviceId() + 
+                                    ", drv=" +driveMtr.getDeviceId()+")";    
     calibrate();
+    simulationInit(specs);
+    getWatcher();
   }
 
   // PID accessor for use in Test/Tune Commands
@@ -301,15 +308,10 @@ public class SwerveModuleMK3 {
     m_velocity = driveEncoder.getVelocity();
     m_position = driveEncoder.getPosition();
     m_externalAngle = absEncoder.getAbsolutePosition().getValueAsDouble() * 360.0;
-    // these are for human consumption, update slower
-    if (frameCounter++ > 10) {      
-      NTUpdate();
-      frameCounter = 0;
-    }
   }
 
   // driveEncoder position 
-  public void setPosition(double position){
+  public void setDrivePosition(double position){
     // set measured_position and encoder to new position.
     m_position = position;
     driveEncoder.setPosition(position);
@@ -375,40 +377,66 @@ public class SwerveModuleMK3 {
    *                     of the module
    */
   public void setDesiredState(SwerveModuleState state) {
-     // should favor reversing direction over turning > 90 degrees
-    // 1/4/2025 
-    //this call was deprecated, use instance version preferred
-    /* 
-    SwerveModuleState m_state = SwerveModuleState.optimize(state, Rotation2d.fromDegrees(m_internalAngle));
-    state = m_state; // uncomment to use optimized angle command
-    */
+    // should favor reversing direction over turning > 90 degrees
     state.optimize(Rotation2d.fromDegrees(m_internalAngle));
-    
-    
-    // use position control on angle with INTERNAL encoder, scaled internally for
-    // degrees
+
+    // use position control on angle with INTERNAL encoder, scaled internally [deg]
     m_angle_target = state.angle.getDegrees();
 
     // figure out how far we need to move, target - current, bounded +/-180
-    double delta = ModMath.delta360(m_angle_target, m_internalAngle);
+    m_angle_delta = ModMath.delta360(m_angle_target, m_internalAngle);
     // if we aren't moving, keep the wheels pointed where they are
-    delta = (Math.abs(state.speedMetersPerSecond) < .01) ? 0.0 : delta;
+    m_angle_delta = (Math.abs(state.speedMetersPerSecond) < .01) ? 0.0 : m_angle_delta;
 
     // now add that delta to unbounded Neo angle, m_internal isn't range bound
-    angleMotorPID.setReference(angleCmdInvert * (m_internalAngle + delta), ControlType.kPosition);
+    angleMotorPID.setReference(angleCmdInvert * (m_internalAngle + m_angle_delta), ControlType.kPosition);
 
     //save target vel for plots
-    m_vel_target =state.speedMetersPerSecond;
+    m_vel_target = state.speedMetersPerSecond;
     
     // use velocity control
     driveMotorPID.setReference(state.speedMetersPerSecond, ControlType.kVelocity);
   }
 
+  /*
+   * Simulation stuff
+   */
   SparkSim driveSim = null;
   SparkSim angleSim = null;
-  final double ANGLE_SLEW_RATE = 180.0; // [deg/s]
+  CANcoderSimState simAbsEncoder;
+  LinearFilter simAngleActuator;
+  //final double ANGLE_SLEW_RATE = 180.0;// * DT; // [deg/s]
 
-  public void simulationInit(){
+  void simAngleActuator() {    
+    //only run when enabled
+    if (!DriverStation.isEnabled()) return;
+    double pos = angleSim.getPosition();
+    SparkRelativeEncoderSim encoder = angleSim.getRelativeEncoderSim();
+    double set_point = angleSim.getSetpoint();
+    //var encoder_invert =encoder.getInverted();
+    //var enc_pos = angleCmdInvert * encoder.getPosition();
+    //var enc_vel = angleCmdInvert * encoder.getVelocity();
+ 
+    // sim'd angle actuator - 1st order response
+    double new_pos = simAngleActuator.calculate(set_point);
+    double vel = (new_pos - pos) / DT;
+    //sim motion
+    angleSim.setPosition(new_pos);
+    encoder.setPosition(angleSim.getPosition());
+    encoder.setVelocity(vel);
+    //sim abs encoder
+    simAbsEncoder.setRawPosition(ModMath.fmod360(angleSim.getPosition()) / 360.0);
+  }
+  
+  public void simulationPeriodic() {
+    simAngleActuator();
+    driveSim.iterate(m_vel_target, 12.0, Constants.DT );
+  }
+
+  public void simulationInit(IRobotSpec spec){
+    if (!Robot.isSimulation()) return;   //skip sim on real    
+    simAbsEncoder = new CANcoderSimState(absEncoder);
+    simAngleActuator = LinearFilter.singlePoleIIR(.025, DT);
     if (this.mType == SparkMax.class) {
       DCMotor sim_drive_mtr =  DCMotor.getNEO(1);
       DCMotor sim_angle_mtr = DCMotor.getNEO(1);
@@ -420,25 +448,11 @@ public class SwerveModuleMK3 {
       driveSim = new SparkFlexSim( ((SparkFlex)driveMotor), sim_drive_mtr );
       angleSim = new SparkFlexSim( ((SparkFlex)angleMotor), sim_angle_mtr );   
     }
-  }
 
-  public void simulationPeriodic() {
-    double angleKp = cc.anglePIDF.getP();
-    double delta = ModMath.delta360(m_angle_target, m_internalAngle);
-    //wip
-    @SuppressWarnings("unused")
-    double angle_dot = angleKp * angleCmdInvert *
-            Math.copySign(MathUtil.clamp(Math.abs(delta), 0.0, ANGLE_SLEW_RATE), delta);
-
-    if (this.mType == SparkMax.class) {
-      driveSim.iterate(m_vel_target, 12.0, Constants.DT );
-      //angleSim.iterate(angle_dot, 12.0, Constants.DT );
-      angleSim.setPosition(m_internalAngle + delta);
-    } else {
-      ((SparkFlexSim)driveSim).iterate(m_vel_target, 12.0, Constants.DT );
-      ((SparkFlexSim)angleSim).setPosition(m_internalAngle + delta);
-      ((SparkFlexSim)angleSim).iterate(0.0, 12.0, Constants.DT );
-    }
+    //sets simulated pos to startup based on offset (angleEncoder is absolute)
+    angleSim.setPosition(angleCmdInvert * angleEncoder.getPosition());
+    double[] simActInit = {angleCmdInvert * angleEncoder.getPosition() };
+    simAngleActuator.reset(simActInit, simActInit);
   }
 
   // THIS IS A WORKAROUND
@@ -449,51 +463,61 @@ public class SwerveModuleMK3 {
   }
 
 
+  public class SwerveModuleMK3Watcher extends WatcherCmd {
+    private NetworkTableEntry nte_angle;
+    private NetworkTableEntry nte_angleMod;
+    private NetworkTableEntry nte_delta;
+    private NetworkTableEntry nte_external_angle;
+    private NetworkTableEntry nte_velocity;
+    private NetworkTableEntry nte_position;
+    private NetworkTableEntry nte_angle_target;
+    private NetworkTableEntry nte_vel_target;
+    private NetworkTableEntry nte_motor_current;
+    private NetworkTableEntry nte_applied_output;
 
-  /**
-   * Network Tables data
-   * 
-   * If a prefix is given for the module, NT entries will be created and updated
-   * on the periodic() call.
-   * 
-   */
-  private NetworkTable table;
-  private NetworkTableEntry nte_angle;
-  private NetworkTableEntry nte_angleMod;
-  private NetworkTableEntry nte_external_angle;
-  private NetworkTableEntry nte_velocity;
-  private NetworkTableEntry nte_position;
-  private NetworkTableEntry nte_angle_target;
-  private NetworkTableEntry nte_vel_target;
-  private NetworkTableEntry nte_motor_current;
-  private NetworkTableEntry nte_applied_output;
+    public SwerveModuleMK3Watcher() {
+    }
 
-  void NTConfig() {
-    // direct networktables logging
-    table = NetworkTableInstance.getDefault().getTable(NT_Name);
-    nte_angle = table.getEntry(NTPrefix + "/angle");
-    nte_angleMod = table.getEntry(NTPrefix + "/angleMod");
-    nte_external_angle = table.getEntry(NTPrefix + "/angle_ext");
-    nte_velocity = table.getEntry(NTPrefix + "/velocity");
-    nte_angle_target = table.getEntry(NTPrefix + "/angle_target");
-    nte_vel_target = table.getEntry(NTPrefix + "/velocity_target");
-    nte_position = table.getEntry(NTPrefix + "/position");
-    nte_motor_current = table.getEntry(NTPrefix + "/motor_current");
-    nte_applied_output = table.getEntry(NTPrefix + "/applied_output");
-  }
+    @Override
+    public String getTableName() {
+      return NT_Name +"/" + NTPrefix;
+    }
 
-  void NTUpdate() {
-    if (table == null)
-      return; // not initialized, punt
-    nte_angle.setDouble(m_internalAngle);
-    nte_angleMod.setDouble(m_internalAngleMod);
-    nte_external_angle.setDouble(m_externalAngle);
-    nte_velocity.setDouble(m_velocity);
-    nte_position.setDouble(m_position);
-    nte_angle_target.setDouble(m_angle_target);
-    nte_vel_target.setDouble(m_vel_target);
-    nte_motor_current.setDouble(driveMotor.getOutputCurrent());
-    nte_applied_output.setDouble(driveMotor.getAppliedOutput());
+    @Override
+    public void ntcreate() {
+      // direct networktables logging
+      NetworkTable table = getTable();
+      nte_angle = table.getEntry( "m_internalAngle");
+      nte_delta = table.getEntry( "m_angle_delta");
+      nte_angleMod = table.getEntry( "m_internalAngleMod");
+      nte_external_angle = table.getEntry( "m_externalAngle");
+      nte_angle_target = table.getEntry( "m_angle_target");
+      nte_vel_target = table.getEntry( "whl velocity_target");
+      nte_velocity = table.getEntry( "whl velocity");
+      nte_position = table.getEntry( "whl position");
+      nte_motor_current  = table.getEntry( "whl mtr current");
+      nte_applied_output = table.getEntry( "whl mtr apply_out");
+    }
+
+    @Override
+    public void ntupdate() {
+      nte_angle.setDouble(fmt2(m_internalAngle));
+      nte_delta.setDouble(fmt2(m_angle_delta));
+      nte_angleMod.setDouble(fmt2(m_internalAngleMod));
+      nte_external_angle.setDouble(fmt2(m_externalAngle));
+      nte_velocity.setDouble(fmt2(m_velocity));
+      nte_position.setDouble(fmt2(m_position));
+      nte_angle_target.setDouble(fmt2(m_angle_target));
+      nte_vel_target.setDouble(fmt2(m_vel_target));
+      nte_motor_current.setDouble(fmt2(driveMotor.getOutputCurrent()));
+      nte_applied_output.setDouble(fmt2(driveMotor.getAppliedOutput()));
+    }
+  }  //watcher class
+
+
+  // access the watcher
+  public Command getWatcher(){
+    return this.new  SwerveModuleMK3Watcher();
   }
 
   public static void sleep(long ms) {

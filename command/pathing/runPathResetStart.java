@@ -65,7 +65,6 @@ public class runPathResetStart extends Command {
   @Override
   public void end(boolean interrupted) {
     System.out.println("***RunPathResetStart Ended, current pose:");
-    odometry.printPose();
-    odometry.enableVisionPose();
+    odometry.printPose();    
   }
 }

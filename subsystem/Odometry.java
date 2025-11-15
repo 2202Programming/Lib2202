@@ -13,6 +13,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.command.WatcherCmd;
+import frc.lib2202.command.pathing.AlianceAwareSetPose;
+import frc.lib2202.command.pathing.AllianceAwareGyroReset;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.subsystem.swerve.IHeadingProvider;
 
@@ -55,6 +57,10 @@ public class Odometry extends SubsystemBase implements OdometryInterface {
 
         odometry = new SwerveDriveOdometry(kinematics, gyro.getHeading(), meas_pos, m_pose);
         SmartDashboard.putData("FieldOdometry", m_field );
+
+        // request callbacks on Rot2d or Pose2d being set
+        AllianceAwareGyroReset.AddRotationCallback(this::setAnglePose);
+        AlianceAwareSetPose.AddPose2dCallback(this::setPose);
     }
 
     @Override
@@ -80,7 +86,7 @@ public class Odometry extends SubsystemBase implements OdometryInterface {
         odometry.resetPosition(gyro.getRotation2d(), meas_pos, m_pose);
     }
 
-    // reset angle to be zero, but retain X and Y; takes a Rotation2d object
+    // reset angle to given, but retain X and Y; takes a Rotation2d object
     @Override
     public void setAnglePose(Rotation2d rot) {
         setPose(new Pose2d(m_pose.getTranslation(), rot));
