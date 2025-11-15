@@ -31,7 +31,10 @@ public abstract class WatcherCmd extends Command {
   final List< Entry> entries = new ArrayList<Entry>();
   
   public WatcherCmd() {
-    this.table = NetworkTableInstance.getDefault().getTable(getTableName());
+    String name = getTableName();
+    //better name for the watcher cmd
+    setName(name+":WatchCmd");
+    this.table = NetworkTableInstance.getDefault().getTable(name);
     this.schedule();
   }
 
