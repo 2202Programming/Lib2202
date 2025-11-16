@@ -117,8 +117,9 @@ public abstract class WatcherCmd extends Command {
     } catch (NoSuchMethodException | NoSuchFieldException |
             InvocationTargetException | IllegalAccessException | IllegalArgumentException e) 
             { /* do nothing */ }
-    // reflect failed, move on with declaring class's simple name.
-    return decl_clz.getSimpleName();
+    // reflect failed, likely not a sub-system 
+    // move on with declaring class's simple name or this class' simplename if decl_clz is null
+    return (decl_clz != null) ? decl_clz.getSimpleName() : this.getClass().getSimpleName();
   };
 
   protected NetworkTable getTable() {
