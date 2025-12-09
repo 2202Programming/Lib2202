@@ -13,9 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-import edu.wpi.first.networktables.NetworkTable;
-import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.*;
 import edu.wpi.first.wpilibj2.command.Command;
 
 /**
@@ -24,6 +22,7 @@ import edu.wpi.first.wpilibj2.command.Command;
  * removed unused/unneeded code to simplify
  * better default tablename using subsystem getName() if found.
  * added addEntry form to simplify table stuff
+ * WIP - convert to nt4 pub/sub api
  */
 public abstract class WatcherCmd extends Command {
   /** Creates a new Watcher. */
@@ -72,19 +71,20 @@ public abstract class WatcherCmd extends Command {
   public void ntupdate(){
     for ( Entry entry : entries) {
       Object value = entry.supplier.get();
+
+      if (entry.N < 0) {
+        // publish what we have, no rounding or is some non-formatted type        
+        entry.publisher.setValue(value);
+        continue;
+      }
+      // deal with rounded types, basic double or float
       if (value instanceof Double) {
-        double dvalue = (Double)value;
-        dvalue =  (entry.N > 0) ? fmt(entry.N, dvalue) : dvalue;
-        entry.tblEntry.setDouble(dvalue);
-      } else if (value instanceof Boolean) {        
-        entry.tblEntry.setBoolean((boolean)value);
-      } else if (value instanceof Integer) {
-        entry.tblEntry.setInteger((long)value);
-      } else if (value instanceof Float) {
-        entry.tblEntry.setFloat((float)value);
-      } else if (value instanceof String) {
-        entry.tblEntry.setString((String)value);
-      } 
+        double dvalue = fmt(entry.N, (Double)value);
+        entry.publisher.setDouble(dvalue);        
+      } else if (value instanceof Float) {       
+        float fvalue_rd = (float) fmt(entry.N, (Float)value);
+        entry.publisher.setFloat(fvalue_rd);      
+      }
     }
   }
 
@@ -104,7 +104,8 @@ public abstract class WatcherCmd extends Command {
   public String getTableName() {
     Class<?> decl_clz = this.getClass().getDeclaringClass();
     try {
-      // this$0 is the outer field created when the watcher is constructed
+      // this is the outer field created when the watcher is constructed
+      // see if we can use it Subsystem::getName for the table name.
       Field outerInstanceField = this.getClass().getDeclaredField("this$0");
       outerInstanceField.setAccessible(true); 
       //get the actual object, to call getName on.
@@ -176,37 +177,34 @@ public abstract class WatcherCmd extends Command {
   }
 
 
-  // WIP - easier constructor api using Supplier<>
+  // WIP - easier entry constructor api using Supplier<>
   class Entry {
-    final NetworkTableEntry tblEntry;
-    final Supplier<?> supplier; 
-    final int N;            //digits to round to
+    //NT4
+    final GenericPublisher publisher;
+    final Supplier<?> supplier;  //function to give supply data value
+    final int N;                 //digits to round to
 
     Entry(String entryName, Supplier<?> func, int N){
-      this.tblEntry= table.getEntry(entryName);
       this.supplier = func;
       this.N = (N < scales.length - 1) ? N : -1;   // prevent out of bounds
-      check_supplier();
+      
+      //NT4
+      Object obj = supplier.get();
+      String nt_type = NetworkTableType.getStringFromObject(obj); 
+      Topic topic = table.getTopic(entryName);
+      this.publisher = topic.genericPublish(nt_type);
+
+      //issue warning about unknown supplier types
+      if (nt_type.equals("")) {
+        String type_clz_name = obj.getClass().getSimpleName();
+        System.out.format("Warning WatcherCmd for %s doesn't support Supplier<%s>,%n"+
+                        "Use custom ntcreate()/ntupdate() to support.%n",
+                        getTableName(), type_clz_name);
+      }
     }
 
-    Entry(String entryName, Supplier<?> func){
-      this(entryName, func, 2);
-    }
-
-    void check_supplier(){
-      Object value = this.supplier.get();
-      if ((value instanceof Double) ||
-          (value instanceof Boolean)  ||
-          (value instanceof Integer)  ||
-          (value instanceof Float)    ||
-          (value instanceof String) ) {
-          return;  //all supported
-      }        
-      // Issue warning about unsupported Entry supplier      
-      var clz_name = value.getClass().getSimpleName();
-      System.out.format("Warning WatcherCmd for %s doesn't support Supplier<%s>,%n"+
-                        "\tUse custom ntcreate()/ntupdate() to support Supplier<%s>.%n",
-                        getTableName(), clz_name, clz_name);
+    Entry(String entryName, Supplier<?> func){      
+      this(entryName, func, -1);  //default to un-rounded value
     }
 
   }
