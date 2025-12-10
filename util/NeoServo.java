@@ -535,6 +535,7 @@ public class NeoServo implements VelocityControlled {
 
             // put the a copy on dashboard to edit
             SmartDashboard.putData(name + "/hwVelPIDcfg", hwVelPIDcfg);
+            SmartDashboard.putData(name + "/swPosPIDcfg", positionPID);
         }
 
         @Override

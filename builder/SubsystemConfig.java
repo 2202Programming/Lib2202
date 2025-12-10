@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import edu.wpi.first.util.sendable.Sendable;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 
 /*
@@ -18,6 +21,8 @@ import edu.wpi.first.wpilibj2.command.Subsystem;
 *  See Configs.java for correct usage for different platforms we have.
 */
 public class SubsystemConfig {
+    static ShuffleboardTab SSTab;
+
     // track all the possible SubsystemConfigs created for later lookup by serial
     // number
     static List<SubsystemConfig> allConfigs = new ArrayList<SubsystemConfig>();
@@ -123,6 +128,12 @@ public class SubsystemConfig {
                 m_obj = (m_factory != null) ? 
                     m_factory.get() : 
                     m_Class.getDeclaredConstructor().newInstance();
+                
+                // add sendables to SSTab on Elastic/SmartDashboard
+                if (m_obj instanceof Sendable) {
+                   // SmartDashboard.putData((Sendable)m_obj);
+                    SSTab.add((Sendable)m_obj);                   
+                }
 
             } catch (NoSuchMethodException e) {
                 System.out.println("*** Problem creating " + m_Class.getSimpleName()
@@ -390,6 +401,7 @@ public class SubsystemConfig {
      * all the robot specs are setup and the serialNumber is found.
      */
     static void constructAll() {
+        SSTab = Shuffleboard.getTab("SubSystem Info");
         var cfg = getSelectedConfig();
 
         // wait for Phoenix library initialization on other threads to complete
