@@ -130,7 +130,7 @@ public class SubsystemConfig {
                     m_Class.getDeclaredConstructor().newInstance();
                 
                 // add sendables to SSTab on Elastic/SmartDashboard
-                if (m_obj instanceof Sendable) {
+                if (m_obj instanceof Subsystem) {
                    // SmartDashboard.putData((Sendable)m_obj);
                     SSTab.add((Sendable)m_obj);                   
                 }

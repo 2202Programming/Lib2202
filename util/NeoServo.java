@@ -41,8 +41,8 @@ public class NeoServo implements VelocityControlled {
     double velocity_cmd; // computed from pid, or external_vel_cmd
     double maxVelocity; // limits
     double initialMaxVelocity = 0.0; // keep the first non-zero as the hard max
-    double arbFeedforward = 0.0; // for specialized control cases
-    double external_vel_cmd = 0.0; // for velocity_mode == true
+    double arbFeedforward = 0.0;     // for specialized control cases
+    double external_vel_cmd = 0.0;   // for velocity_mode == true
     boolean velocity_mode = false;
     double trim = 0.0; // offset from the commanded position (not seen in measured)
     double MIN_POS = -500.0, MAX_POS = 500.0; // PLEASE SET YOUR CLAMP VALUES
@@ -50,6 +50,9 @@ public class NeoServo implements VelocityControlled {
     // measured values
     double currentPos;
     double currentVel;
+
+    //arbFF Vel Compensation
+    boolean arb_ff_vel_comp = false;
 
     // safety checks on servo movement
     int safety_frame_count = 0;
@@ -261,6 +264,26 @@ public class NeoServo implements VelocityControlled {
             .velocityConversionFactor( conversionFactor / 60.0);
         ctrl.configure(ctrlCfg, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
         return this;
+    }
+
+    /**
+     * Enables or disables using the arb_FF to over come friction based on direction. The requested velocity's
+     * sign is applied to the arb_ff and added to the velocity controller.
+     * 
+     * Using the velocity command sign is good for friction in either direction.
+     * 
+     * Non-velocity example would be for gravity compensation based on angle of an arm.
+     * 
+     * @param aff_vel_comp   true - use vel_cmd sign with arb_ff,  
+     *                       false (default) - use arb_ff as supplied
+     */
+    public NeoServo setAFFVelocityComp(boolean aff_vel_comp) {
+        arb_ff_vel_comp = aff_vel_comp;
+        return this;
+    }
+
+    public boolean getAFFVelocityComp(){
+        return arb_ff_vel_comp;
     }
 
     /**
@@ -491,6 +514,16 @@ public class NeoServo implements VelocityControlled {
             // moving, clear the warning counter
             warning_count = 0;
         }
+
+        // apply vel_cmd sign if requested
+        if (arb_ff_vel_comp) {
+            arbFF = Math.signum(velocity_cmd) * arbFF;
+            // prevent jitter on sign switching
+            if (Math.abs(positionPID.getError()) <= positionPID.getErrorTolerance()) {
+                arbFF = 0.0; 
+            }
+        }
+
         // potential use of feedforward
         pid.setReference(velocity_cmd, ControlType.kVelocity, hwVelSlot, arbFF, ArbFFUnits.kPercentOut);
     }
