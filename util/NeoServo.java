@@ -7,6 +7,7 @@ package frc.lib2202.util;
 import com.revrobotics.REVLibError;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.spark.ClosedLoopSlot;
+import com.revrobotics.spark.FeedbackSensor;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkBase.PersistMode;
@@ -17,7 +18,6 @@ import com.revrobotics.spark.SparkClosedLoopController.ArbFFUnits;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.AlternateEncoderConfig.Type;
-import com.revrobotics.spark.config.ClosedLoopConfig.FeedbackSensor;
 import com.revrobotics.spark.config.EncoderConfig;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkFlexConfig;
@@ -547,7 +547,7 @@ public class NeoServo implements VelocityControlled {
         }
 
         // potential use of feedforward
-        pid.setReference(velocity_cmd, ControlType.kVelocity, hwVelSlot, arbFF, ArbFFUnits.kPercentOut);
+        pid.setSetpoint(velocity_cmd, ControlType.kVelocity, hwVelSlot, arbFF, ArbFFUnits.kPercentOut);
     }
 
     public void simulationPeriodic() {
