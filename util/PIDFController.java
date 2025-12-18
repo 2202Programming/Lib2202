@@ -41,17 +41,18 @@ public class PIDFController extends PIDController {
 
     /**
      * Construct a PIDF controller given the following gains.
+     * When in doubt, use this constructor unless you need additional arguments.
      * 
-     * When tuning a velocity PID, start with P, I and D all as 0 and f as 1/conversionFactor. 
+     * When tuning a velocity PID, start with P, I and D all as 0 and F as <code>1/conversionFactor</code>. 
      * Then slowing increase f and setpoint until you have reasonable movement. 
      * Adjust f such that when movement occurs, it is happening at the rate specified in engineered 
-     * units in the setpoint. Confirm this with glass or anothe plotting method
+     * units in the setpoint. Confirm this with glass or another plotting method.
      * 
      * When tuning position PID, start with I and D at 0 and P at a small (0.1) value.
-     * Increase P until you get small oscillations, and set P to 0.6*value with oscillations.
+     * Increase P until you get small oscillations, and then set P to <code>0.6*value-with-oscillations</code>.
      * Optionally, add a small I if mechanism is having trouble getting to final position.
      * 
-     * @param Kp proportional gain 
+     * @param Kp Proportional gain 
      * @param Ki Integral gain
      * @param Kd Derivative gain
      * @param Kf Feed-Forward gain
@@ -60,7 +61,7 @@ public class PIDFController extends PIDController {
      * @see <a href="https://docs.revrobotics.com/revlib/spark/closed-loop/getting-started-with-pid-tuning">Getting Started With PID Tuning</a>
      */
     public PIDFController(double Kp, double Ki, double Kd, double Kf) {
-        this(Kp, Ki, Kd, Kf, DT,"");        
+        this(Kp, Ki, Kd, Kf, DT, "");        
     }
 
     /**
@@ -68,7 +69,7 @@ public class PIDFController extends PIDController {
      * 
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
      * 
-     * @param Kp proportional gain 
+     * @param Kp Proportional gain 
      * @param Ki Integral gain
      * @param Kd Derivative gain
      * @param Kf Feed-Forward gain
@@ -81,6 +82,10 @@ public class PIDFController extends PIDController {
 
     /**
      * Construct a PIDF controller with a name for network tables for tuning
+     * @param Kp Proportional gain 
+     * @param Ki Integral gain
+     * @param Kd Derivative gain
+     * @param Kf Feed-Forward gain
      * @param m_name String for PIDFController NT entries
      * 
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
@@ -90,7 +95,13 @@ public class PIDFController extends PIDController {
     }
 
     /**
-     * Construct a PIDF controller with a name for network tables for tuning
+     * Construct a PIDF controller with a name for network tables for tuning.
+     * This is the base constructor, all other constructors override this with selected defaults.
+     * @param Kp Proportional gain 
+     * @param Ki Integral gain
+     * @param Kd Derivative gain
+     * @param Kf Feed-Forward gain
+     * @param period Default controller update rate
      * @param m_name String for PIDFController NT entries
      * 
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
@@ -120,7 +131,7 @@ public class PIDFController extends PIDController {
     }
 
     @Override
-    // captures min/max for continous so we have it for copyCtor
+    // captures min/max for continuous so we have it for copyCtor
     public void enableContinuousInput(double minimumInput, double maximumInput) {        
         m_minimumInput = minimumInput;
         m_maximumInput = maximumInput;
@@ -129,11 +140,18 @@ public class PIDFController extends PIDController {
 
 
     /**
+     * Set PIDF gain values to those given in arguments. 
+     * 
+     * @param Kp proportional gain 
+     * @param Ki Integral gain
+     * @param Kd Derivative gain
+     * @param Kf Feed-Forward gain
+     * @param period Default controller update rate
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
      */
-    public void setPIDF(double kP, double kI, double kD, double kF) {
-        setPID(kP, kI, kD);
-        setF(kF);
+    public void setPIDF(double Kp, double Ki, double Kd, double Kf) {
+        setPID(Kp, Ki, Kd);
+        setF(Kf);
     }
 
     // Accessors for the Kf
@@ -147,20 +165,20 @@ public class PIDFController extends PIDController {
     }
 
     @Override
-    public void setP(double kp){
-        super.setP(kp);
+    public void setP(double Kp){
+        super.setP(Kp);
         m_changes = true;
     }
 
     @Override
-    public void setI(double ki){
-        super.setI(ki);
+    public void setI(double Ki){
+        super.setI(Ki);
         m_changes = true;
     }
 
     @Override
-    public void setD(double kd){
-        super.setD(kd);
+    public void setD(double Kd){
+        super.setD(Kd);
         m_changes = true;
     }
 
@@ -215,8 +233,22 @@ public class PIDFController extends PIDController {
     }
 
     /**
+     * @see {@link #copyTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot, double smartMaxVel, double smartMaxAccel)}
+     */
+    public void copyTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot) {
+        copyTo(motorController, motorConfig, slot, m_smartMaxVel, m_smartMaxAccel);
+    }
+
+    /**
+     * @see {@link #copyTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot, double smartMaxVel, double smartMaxAccel)}
+     */
+    public void copyTo(SparkBase motorController, SparkBaseConfig motorConfig) {
+        copyTo(motorController, motorConfig, ClosedLoopSlot.kSlot0, m_smartMaxVel, m_smartMaxAccel);
+    }
+
+    /**
      * 
-     * copyTo() copies this pid's values down to a hardward PID implementation
+     * copyTo() copies this pid's values down to a hardware PID implementation
      * 
      * @param motorController  device to change
      * @param motorConfig      device's config object
@@ -226,14 +258,6 @@ public class PIDFController extends PIDController {
      * @param smartMaxVel   optional, 0.1 [units/s]
      * @param smartMaxAccel optional 0.01 [units/s^2]
      */
-    public void copyTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot) {
-        copyTo(motorController, motorConfig, slot, m_smartMaxVel, m_smartMaxAccel);
-    }
-
-    public void copyTo(SparkBase motorController, SparkBaseConfig motorConfig) {
-        copyTo(motorController, motorConfig, ClosedLoopSlot.kSlot0, m_smartMaxVel, m_smartMaxAccel);
-    }
-
     public void copyTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot, 
                        double smartMaxVel, double smartMaxAccel) {
         m_smartMaxVel = smartMaxVel;
