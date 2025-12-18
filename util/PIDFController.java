@@ -57,7 +57,7 @@ public class PIDFController extends PIDController {
      * @param Kd Derivative gain
      * @param Kf Feed-Forward gain
      * 
-     * @see edu.wpi.first.math.controller.PIDController#PIDController(double kp, double ki, double kd, double period)
+     * @see {@link edu.wpi.first.math.controller.PIDController#PIDController(double kp, double ki, double kd, double period)}
      * @see <a href="https://docs.revrobotics.com/revlib/spark/closed-loop/getting-started-with-pid-tuning">Getting Started With PID Tuning</a>
      */
     public PIDFController(double Kp, double Ki, double Kd, double Kf) {
