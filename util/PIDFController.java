@@ -13,7 +13,7 @@ import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.util.sendable.SendableBuilder;
 
 /**
- * PIDFController - extends current (2020) pidcontroller to include a feed
+ * PIDFController - extends current (2020) WPI PIDcontroller to include a feed
  * forward gain which is not currently part of the WPILib version.
  * 
  * This is useful for holding values for devices like the talon SRX or sparkMax
