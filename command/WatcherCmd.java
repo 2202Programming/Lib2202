@@ -15,6 +15,7 @@ import java.util.function.Supplier;
 
 import edu.wpi.first.networktables.*;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 
 /**
  * Notes:
@@ -34,7 +35,8 @@ public abstract class WatcherCmd extends Command {
     //better name for the watcher cmd
     setName(name+":WatchCmd");
     this.table = NetworkTableInstance.getDefault().getTable(name);
-    this.schedule();
+    //auto schedule the watcher, if we create it, run it.
+    CommandScheduler.getInstance().schedule(this);
   }
 
   // addEntry functions

@@ -7,6 +7,7 @@ package frc.lib2202.command;
 import java.util.function.DoubleSupplier;
 
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.lib2202.Constants;
 
 public class AccelWatcher extends Command {
@@ -65,7 +66,7 @@ public class AccelWatcher extends Command {
     @Override
     public void end(boolean interrupted) {
         if (cmd != null && !interrupted) {
-            cmd.schedule();
+            CommandScheduler.getInstance().schedule(cmd);
             System.out.println("Accel limit hit, scheduling: " + cmd.getName() );
         }
     }
