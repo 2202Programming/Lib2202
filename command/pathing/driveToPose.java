@@ -10,6 +10,7 @@ import com.pathplanner.lib.path.PathConstraints;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 /*
@@ -46,7 +47,9 @@ public class driveToPose extends Command {
   // Called every time the scheduler runs while the command is scheduled.
   @Override
   public void execute() {
-    AutoBuilder.pathfindToPose(targetPose, pathConstraints, 0.0).schedule();
+    // fix cmd.schedule() being deprecated
+    var cmd = AutoBuilder.pathfindToPose(targetPose, pathConstraints, 0.0); //.schedule();
+    CommandScheduler.getInstance().schedule(cmd);
   }
 
   // Called once the command ends or is interrupted.
