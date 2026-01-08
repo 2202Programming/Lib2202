@@ -5,6 +5,7 @@ package frc.lib2202.subsystem.swerve;
 
 import static frc.lib2202.Constants.DEGperRAD;
 
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.StatusSignal;
 //wip import com.ctre.phoenix6.BaseStatusSignal;
@@ -34,13 +35,13 @@ import frc.lib2202.subsystem.swerve.config.ModuleConfig;
 import frc.lib2202.util.ModMath;
 
 public class SwerveDrivetrain extends DriveTrainInterface {
-  static final String canBusName = "rio";
   static final double longWaitSeconds = 1.0; // cancode config wait
 
   // cc is the chassis config for all our pathing math
   // final RobotLimits limits
   final ChassisConfig cc; // from robotSpecs
   final ModuleConfig mc[]; // from robotSpecs
+  final String canBusName;  // "rio" (default), "can0", CANivor name, .. 
 
   /**
    *
@@ -70,11 +71,17 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   final CANcoder canCoders[];
 
   public SwerveDrivetrain() {
-      this(SparkMax.class);
+      this(SparkMax.class, "rio");
   }
 
   @SuppressWarnings("rawtypes")
   public SwerveDrivetrain(Class mtrClass) {
+      this(SparkMax.class, "rio");
+  }
+
+  @SuppressWarnings("rawtypes")
+  public SwerveDrivetrain(Class mtrClass, String canBusName) {
+    this.canBusName = canBusName;
     cc = RobotContainer.getRobotSpecs().getChassisConfig();
     mc = RobotContainer.getRobotSpecs().getModuleConfigs();
 
@@ -141,7 +148,7 @@ public class SwerveDrivetrain extends DriveTrainInterface {
    * @return CANcoder just initialized
    */
   private CANcoder initCANcoder(int cc_ID, double cc_offset_deg) {
-    CANcoder canCoder = new CANcoder(cc_ID, canBusName);
+    CANcoder canCoder = new CANcoder(cc_ID, new CANBus(canBusName));
     StatusSignal<Angle> abspos = canCoder.getAbsolutePosition().waitForUpdate(longWaitSeconds, true);
     StatusSignal<Angle> pos = canCoder.getPosition().waitForUpdate(longWaitSeconds, true);
     CANcoderConfiguration configs = new CANcoderConfiguration();
