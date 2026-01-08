@@ -265,13 +265,14 @@ public class PIDFController extends PIDController {
        
         //need to check - if we just update a few parameters in SparkMaxConfig, do the rest stay the same as previously set?
         //otherwise do we need to pull all the prior parameters out of the motorController's sparkmaxconfig and reapply them?
-        motorConfig.closedLoop.pidf(this.getP(), this.getI(), this.getD(), this.getF(),  slot);
+        motorConfig.closedLoop.pid(this.getP(), this.getI(), this.getD(), slot);
+        motorConfig.closedLoop.feedForward.kV(this.getF(), slot);
         // sparkmax does not like POSITIVE_INFINITY, thows param erron on id 17...  0.0 should workaround
         // minor hack: if izone is not set, base class defaults to POSITIVITE_INFINITY
         double izone = (this.getIZone() == Double.POSITIVE_INFINITY) ? 0.0 : this.getIZone();
         motorConfig.closedLoop.iZone(izone, slot);
         motorConfig.closedLoop.maxMotion.maxAcceleration(smartMaxAccel, slot);
-        motorConfig.closedLoop.maxMotion.maxVelocity(smartMaxVel, slot);
+        motorConfig.closedLoop.maxMotion.cruiseVelocity(smartMaxVel, slot);
 
         REVLibError driveError = motorController.configure(motorConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
         
@@ -293,7 +294,8 @@ public class PIDFController extends PIDController {
         // skip if no changes or no attached hw typical if use PIDF without calling copyTo()
         if (!m_changes || motorConfig == null || motorController == null) return;
 
-        motorConfig.closedLoop.pidf(this.getP(), this.getI(), this.getD(), this.getF(), slot);        
+        motorConfig.closedLoop.pid(this.getP(), this.getI(), this.getD(), slot);
+        motorConfig.closedLoop.feedForward.kV(this.getF(), slot);      
         motorConfig.closedLoop.iZone(getIZone(), slot);
         
         // send to HW if we have a pid change, use async so robot loop isn't delayed
