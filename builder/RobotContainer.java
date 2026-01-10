@@ -17,7 +17,7 @@ import edu.wpi.first.wpilibj2.command.Subsystem;
  * needed spec is identified by the RIO serial number.
  */
 public class RobotContainer {
-  public String LIB2202_VERSION = "1.0.7";   // version
+  public String LIB2202_VERSION = "1.0.8";   // version
 
   static RobotContainer rc;   //singleton
 
