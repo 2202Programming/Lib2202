@@ -33,6 +33,14 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.Constants;
 import frc.lib2202.command.WatcherCmd;
+
+/**
+ * Provides an servo-like interface to a Spark based motor controller.
+ * 
+ * Specifically, it provides an interface to a Spark motor controller, a PIDF 
+ * (hardware) velocity Controller, a PID (software) position controller and
+ * utility methods for things such as stall detection and basic overload guarding
+ */
 @SuppressWarnings("rawtypes")
 public class NeoServo implements VelocityControlled {
     String name = "no-name";
@@ -41,8 +49,8 @@ public class NeoServo implements VelocityControlled {
     double velocity_cmd; // computed from pid, or external_vel_cmd
     double maxVelocity; // limits
     double initialMaxVelocity = 0.0; // keep the first non-zero as the hard max
-    double arbFeedforward = 0.0; // for specialized control cases
-    double external_vel_cmd = 0.0; // for velocity_mode == true
+    double arbFeedforward = 0.0;     // for specialized control cases
+    double external_vel_cmd = 0.0;   // for velocity_mode == true
     boolean velocity_mode = false;
     double trim = 0.0; // offset from the commanded position (not seen in measured)
     double MIN_POS = -500.0, MAX_POS = 500.0; // PLEASE SET YOUR CLAMP VALUES
@@ -50,6 +58,9 @@ public class NeoServo implements VelocityControlled {
     // measured values
     double currentPos;
     double currentVel;
+
+    //arbFF Vel Compensation
+    boolean arb_ff_vel_comp = false;
 
     // safety checks on servo movement
     int safety_frame_count = 0;
@@ -85,7 +96,7 @@ public class NeoServo implements VelocityControlled {
         this.mtrClass = mtrClass;
         ctrl = (mtrClass == SparkMax.class) ? new SparkMax(canID, motorType) : new SparkFlex(canID, motorType);
         ctrlCfg = (mtrClass == SparkMax.class) ? new SparkMaxConfig() : new SparkFlexConfig();
-        setName("NeoServo-" + canID);  //until a better name is selected
+        setName("NeoServo-" + canID);  // until a better name is selected
         ctrl.setCANTimeout(50); //enter blocking mode for config
         ctrl.clearFaults();
         //not used libs2025 update  ctrl.restoreFactoryDefaults();
@@ -102,7 +113,7 @@ public class NeoServo implements VelocityControlled {
                 .outputRange(-1.0, 1.0);
             
             // dpl 1/4/2025 looks like only kQuadrature is only type supported.
-            if(mtrClass ==  SparkMax.class){
+            if(mtrClass == SparkMax.class){
                 ((SparkMaxConfig) ctrlCfg).alternateEncoder
                 .countsPerRevolution(kCPR)
                 .inverted(false);
@@ -197,13 +208,15 @@ public class NeoServo implements VelocityControlled {
         return this;
     }
 
-    /*
+    /**
      * Add an external Position encoder.  Trying to use motor counts for velocity and external 
      * encoder for position.
      * 
-     * encType - Type.kQuadrature
-     * CPR - count / rotation likely 8192
-     * scale_rotation - [units/rotation]
+     * @param encType - Type.kQuadrature
+     * @param CPR - count / rotation likely 8192
+     * @param scale_rotations - [units/rotation]
+     * 
+     * @return The modified NeoServo object for method chaining
      */
     public NeoServo addAltPositionEncoder(Type encType, int CPR, double scale_rotations){
         if(mtrClass == SparkMax.class){
@@ -225,7 +238,7 @@ public class NeoServo implements VelocityControlled {
 
     /**
      * Set motor's conversion factor.
-     * This is typically used to accomodate gearboxes and to allow control in "Engineered Units". 
+     * This is typically used to accommodate gearboxes and to allow control in "Engineered Units". 
      * The position control will return rotations multiplied by the supplied conversion factor
      * The velocity control will return rotations per second multiplied by the supplied conversion factor.
      * 
@@ -237,17 +250,17 @@ public class NeoServo implements VelocityControlled {
      * 
      *      convFactor + 360.0/45.0 = 8.0 [deg/rot-mtr]
      * 
-     * Always leave the conversion factor unsimplified to avoid magic numbers and easy editing if one part
+     * Always leave the conversion factor un-simplified to avoid magic numbers and easy editing if one part
      * of the mechanism changes.
      * 
      * This is for the default internal encoder used in spareMax/flux. If an alternate or external encoder
      * is needed use addAltPositionEncoder()  
-     * @see NeoServo.addAltPositionEncoder(Type encType, int CPR, double scale_rotations
+     * @see {@link NeoServo.addAltPositionEncoder(Type encType, int CPR, double scale_rotations)}
      * 
-     * @see com.revrobotics.spark.config.EncoderConfig#positionConversionFactor(double factor)
-     * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/encoderconfig#positionConversionFactor(double)"></a>
-     * @see com.revrobotics.spark.config.EncoderConfig#velocityConversionFactor(double factor)
-     * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/encoderconfig#velocityConversionFactor(double)"></a>
+     * @see {@link com.revrobotics.spark.config.EncoderConfig#positionConversionFactor(double factor)}
+     * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/encoderconfig#positionConversionFactor(double)">encoderconfig.positionConversionFactor (JavaDoc)</a>
+     * @see {@link com.revrobotics.spark.config.EncoderConfig#velocityConversionFactor(double factor)}
+     * @see <a href="https://codedocs.revrobotics.com/java/com/revrobotics/spark/config/encoderconfig#velocityConversionFactor(double)">encoderconfig.velocityConversionFactor (JavaDoc)</a>
      * 
      * @param conversionFactor A double representing the conversion factor
      * @return The modified NeoServo object for method chaining
@@ -264,11 +277,34 @@ public class NeoServo implements VelocityControlled {
     }
 
     /**
+     * Enables or disables using the arb_FF to over come friction based on direction. The requested velocity's
+     * sign is applied to the arb_ff and added to the velocity controller.
+     * 
+     * Using the velocity command sign is good for friction in either direction.
+     * 
+     * Non-velocity example would be for gravity compensation based on angle of an arm.
+     * 
+     * @param aff_vel_comp   true - use vel_cmd sign with arb_ff,  
+     *                       false (default) - use arb_ff as supplied
+     * 
+     * @return The modified NeoServo object for method chaining
+     */
+    public NeoServo setAFFVelocityComp(boolean aff_vel_comp) {
+        arb_ff_vel_comp = aff_vel_comp;
+        return this;
+    }
+
+    public boolean getAFFVelocityComp(){
+        return arb_ff_vel_comp;
+    }
+
+    /**
      * Set the motor's positional and velocity tolerance. If SetConversionFactor() was called, 
      * this will be in engineering units
      * 
      * @param posTol motor's positional tolerance in engineering units
      * @param velTol motor's velocity tolerance in engineering units
+     * 
      * @return The modified NeoServo object for method chaining
      */
     public NeoServo setTolerance(double posTol, double velTol) {
@@ -306,6 +342,7 @@ public class NeoServo implements VelocityControlled {
      * Sets the motor controller's max velocity in both directions.
      * Units are in engineering units if setConversionFactor() was called 
      * @param maxVelocity maximum motor velocity in engineering units
+     * 
      * @return this NeoServo to facilitate chaining
      */
     public NeoServo setMaxVelocity(double maxVelocity) {
@@ -337,7 +374,12 @@ public class NeoServo implements VelocityControlled {
         external_vel_cmd = 0.0;
     }
 
-    public void setClamp(double min_pos, double max_pos) {
+    /**
+     * Set a minimum and maximum limit of travel in position mode
+     * @param min_pos Maximum allowable position, engineering units
+     * @param max_pos Minimum allowable position, engineering units
+     */
+    public void setClamp(double min_pos, double max_pos) { // consider if this is an appropriate name
         MIN_POS = min_pos;
         MAX_POS = max_pos;
     }
@@ -354,12 +396,18 @@ public class NeoServo implements VelocityControlled {
         return positionPID.atSetpoint();
     }
 
-    // Sets the encoder position (Doesn't move anything)
+    /**
+     * Set the motor controller's encoder position, communicated to the PID.
+     * 
+     * This DOES NOT move the motor.
+     * @param pos Position to set the encoder to, engineering unit.
+     */
     public void setPosition(double pos) {
         posEncoder.setPosition(pos); // tell our encoder we are at pos
         positionPID.reset(); // clear any history in the pid
         positionPID.calculate(pos - trim, pos); // tell our pid we want that position; measured, setpoint same
     }
+
 
     public double getPosition() {
         return currentPos;
@@ -418,14 +466,11 @@ public class NeoServo implements VelocityControlled {
         ctrl.getClosedLoopController().setIAccum(0.0);
     }
 
-    /*
-     * isStalled()
+    /**
+     * Looks for motion on the servo to ensure we are not stalled. If this returns true, <code>periodic()</code> will kill the motor.
      * 
-     * Looks for motion on the servo to ensure we are not stalled.
-     * 
-     * return -
-     *  false => servo is moving correctly
-     *  true => servo is stalled for N frames or more, cut the motor in periodic()
+     * @return <code>false</code> if servo is moving correctly. <code>true</code> if the servo is stalled for 
+     * <code>NO_MOTION_FRAMES</code> frames or more
      */
     boolean isStalled() {
         int direction = (int)Math.copySign(1.0, velocity_cmd);
@@ -491,6 +536,16 @@ public class NeoServo implements VelocityControlled {
             // moving, clear the warning counter
             warning_count = 0;
         }
+
+        // apply vel_cmd sign if requested
+        if (arb_ff_vel_comp) {
+            arbFF = Math.signum(velocity_cmd) * arbFF;
+            // prevent jitter on sign switching
+            if (Math.abs(positionPID.getError()) <= positionPID.getErrorTolerance()) {
+                arbFF = 0.0; 
+            }
+        }
+
         // potential use of feedforward
         pid.setReference(velocity_cmd, ControlType.kVelocity, hwVelSlot, arbFF, ArbFFUnits.kPercentOut);
     }
@@ -535,6 +590,7 @@ public class NeoServo implements VelocityControlled {
 
             // put the a copy on dashboard to edit
             SmartDashboard.putData(name + "/hwVelPIDcfg", hwVelPIDcfg);
+            SmartDashboard.putData(name + "/swPosPIDcfg", positionPID);
         }
 
         @Override

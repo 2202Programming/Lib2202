@@ -7,19 +7,13 @@ import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
-import com.revrobotics.spark.SparkFlex;
-import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.config.ClosedLoopConfigAccessor;
 import com.revrobotics.spark.config.SparkBaseConfig;
 
 import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.networktables.NetworkTable;
-import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.util.sendable.SendableBuilder;
 
 /**
- * PIDFController - extends current (2020) pidcontroller to include a feed
+ * PIDFController - extends current (2020) WPI PIDcontroller to include a feed
  * forward gain which is not currently part of the WPILib version.
  * 
  * This is useful for holding values for devices like the talon SRX or sparkMax
@@ -37,43 +31,37 @@ public class PIDFController extends PIDController {
     double m_smartMaxAccel = .01;
     String m_name = "";          // can't be final, but NT setup deferred until we have a name
     double m_Kf = 0.0;
-    
-    private Boolean NT_enabled = false;
-    private NetworkTable table;
-    private NetworkTableEntry nt_p;
-    private NetworkTableEntry nt_i;
-    private NetworkTableEntry nt_d;
-    private NetworkTableEntry nt_f;
+    boolean m_changes = false;   // tracks if changes need for sending to hw
 
-    private NetworkTableEntry nt_requested_p;
-    private NetworkTableEntry nt_requested_i;
-    private NetworkTableEntry nt_requested_d;
-    private NetworkTableEntry nt_requested_f;
+    // for continous, copies in wpi are private
+    double m_maximumInput;
+    double m_minimumInput;
 
     public final String NT_Name = "PIDF"; // expose data under PIDF table
 
     /**
      * Construct a PIDF controller given the following gains.
+     * When in doubt, use this constructor unless you need additional arguments.
      * 
-     * When tuning a velocity PID, start with P, I and D all as 0 and f as 1/conversionFactor. 
+     * When tuning a velocity PID, start with P, I and D all as 0 and F as <code>1/conversionFactor</code>. 
      * Then slowing increase f and setpoint until you have reasonable movement. 
      * Adjust f such that when movement occurs, it is happening at the rate specified in engineered 
-     * units in the setpoint. Confirm this with glass or anothe plotting method
+     * units in the setpoint. Confirm this with glass or another plotting method.
      * 
      * When tuning position PID, start with I and D at 0 and P at a small (0.1) value.
-     * Increase P until you get small oscillations, and set P to 0.6*value with oscillations.
+     * Increase P until you get small oscillations, and then set P to <code>0.6*value-with-oscillations</code>.
      * Optionally, add a small I if mechanism is having trouble getting to final position.
      * 
-     * @param Kp proportional gain 
+     * @param Kp Proportional gain 
      * @param Ki Integral gain
      * @param Kd Derivative gain
      * @param Kf Feed-Forward gain
      * 
-     * @see edu.wpi.first.math.controller.PIDController#PIDController(double kp, double ki, double kd, double period)
+     * @see {@link edu.wpi.first.math.controller.PIDController#PIDController(double kp, double ki, double kd, double period)}
      * @see <a href="https://docs.revrobotics.com/revlib/spark/closed-loop/getting-started-with-pid-tuning">Getting Started With PID Tuning</a>
      */
     public PIDFController(double Kp, double Ki, double Kd, double Kf) {
-        this(Kp, Ki, Kd, Kf, DT,"");        
+        this(Kp, Ki, Kd, Kf, DT, "");        
     }
 
     /**
@@ -81,7 +69,7 @@ public class PIDFController extends PIDController {
      * 
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
      * 
-     * @param Kp proportional gain 
+     * @param Kp Proportional gain 
      * @param Ki Integral gain
      * @param Kd Derivative gain
      * @param Kf Feed-Forward gain
@@ -93,18 +81,11 @@ public class PIDFController extends PIDController {
     }
 
     /**
-     * Construct a PIDF controller with the same Kp, Ki, Kd, Kf, and period as the supplied
-     * controller
-     * @param src The controller to source the PID gains from
-     * 
-     * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
-     */
-    // public PIDFController(PIDFController src) {
-    //     this(src.getP(), src.getI(), src.getD(), src.getF(), src.getPeriod(), src.m_name+"_copied");
-    // }
-
-    /**
      * Construct a PIDF controller with a name for network tables for tuning
+     * @param Kp Proportional gain 
+     * @param Ki Integral gain
+     * @param Kd Derivative gain
+     * @param Kf Feed-Forward gain
      * @param m_name String for PIDFController NT entries
      * 
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
@@ -114,7 +95,13 @@ public class PIDFController extends PIDController {
     }
 
     /**
-     * Construct a PIDF controller with a name for network tables for tuning
+     * Construct a PIDF controller with a name for network tables for tuning.
+     * This is the base constructor, all other constructors override this with selected defaults.
+     * @param Kp Proportional gain 
+     * @param Ki Integral gain
+     * @param Kd Derivative gain
+     * @param Kf Feed-Forward gain
+     * @param period Default controller update rate
      * @param m_name String for PIDFController NT entries
      * 
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf, double period)}
@@ -126,26 +113,45 @@ public class PIDFController extends PIDController {
     }
 
     /* copy ctor */
-    public PIDFController(PIDFController original) {
+    private  PIDFController(PIDFController original) {
         super(original.getP(), original.getI(), original.getD() );
         setF(original.m_Kf);
         hw_controller = original.hw_controller;
         hw_config = original.hw_config;
         m_smartMaxVel = original.m_smartMaxVel;
         m_smartMaxAccel = original.m_smartMaxAccel;
+        m_minimumInput = original.m_maximumInput;
+        m_maximumInput = original.m_maximumInput;
         m_name = original.m_name;
         this.setIZone(original.getIZone());
         this.setSetpoint(original.getSetpoint());
-        // needs to reset continous after copy, vars hidden by private
+        if (original.isContinuousInputEnabled()) {
+            super.enableContinuousInput(m_minimumInput, m_maximumInput);
+        }        
     }
+
+    @Override
+    // captures min/max for continuous so we have it for copyCtor
+    public void enableContinuousInput(double minimumInput, double maximumInput) {        
+        m_minimumInput = minimumInput;
+        m_maximumInput = maximumInput;
+        super.enableContinuousInput(minimumInput, maximumInput);
+      }
 
 
     /**
+     * Set PIDF gain values to those given in arguments. 
+     * 
+     * @param Kp proportional gain 
+     * @param Ki Integral gain
+     * @param Kd Derivative gain
+     * @param Kf Feed-Forward gain
+     * @param period Default controller update rate
      * @see {@link #PIDFController(double Kp, double Ki, double Kd, double Kf)}
      */
-    public void setPIDF(double kP, double kI, double kD, double kF) {
-        setPID(kP, kI, kD);
-        setF(kF);
+    public void setPIDF(double Kp, double Ki, double Kd, double Kf) {
+        setPID(Kp, Ki, Kd);
+        setF(Kf);
     }
 
     // Accessors for the Kf
@@ -155,6 +161,31 @@ public class PIDFController extends PIDController {
 
     public void setF(double Kf) {
         m_Kf = Kf;
+        m_changes = true;
+    }
+
+    @Override
+    public void setP(double Kp){
+        super.setP(Kp);
+        m_changes = true;
+    }
+
+    @Override
+    public void setI(double Ki){
+        super.setI(Ki);
+        m_changes = true;
+    }
+
+    @Override
+    public void setD(double Kd){
+        super.setD(Kd);
+        m_changes = true;
+    }
+
+    @Override
+    public void setIZone(double izone){
+        super.setIZone(izone);
+        m_changes = true;
     }
 
     public String getName(){
@@ -162,15 +193,7 @@ public class PIDFController extends PIDController {
     }
     
     public void setName(String m_name) {
-        //skip if we don't have a name yet
-        if (m_name.equals("")) return;
-        
-        // allow name change only of NT wasn't setup
-        if (this.m_name.equals("")) {
-            this.m_name = m_name;
-            // initialize NT
-            NT_setup();           
-        }
+       this.m_name = m_name;
     }
 
     /**
@@ -199,9 +222,9 @@ public class PIDFController extends PIDController {
      */
     @Override
     public void initSendable(SendableBuilder builder) {
-        super.initSendable(builder);
+        super.initSendable(builder); 
+        builder.setSmartDashboardType(this.getClass().getSimpleName());
         builder.addDoubleProperty("f", this::getF, this::setF);
-        builder.addDoubleProperty("iZone", this::getIZone, this::setIZone);
     }
 
     public boolean equals(PIDFController other) {
@@ -210,8 +233,22 @@ public class PIDFController extends PIDController {
     }
 
     /**
+     * @see {@link #copyTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot, double smartMaxVel, double smartMaxAccel)}
+     */
+    public void copyTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot) {
+        copyTo(motorController, motorConfig, slot, m_smartMaxVel, m_smartMaxAccel);
+    }
+
+    /**
+     * @see {@link #copyTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot, double smartMaxVel, double smartMaxAccel)}
+     */
+    public void copyTo(SparkBase motorController, SparkBaseConfig motorConfig) {
+        copyTo(motorController, motorConfig, ClosedLoopSlot.kSlot0, m_smartMaxVel, m_smartMaxAccel);
+    }
+
+    /**
      * 
-     * copyTo() copies this pid's values down to a hardward PID implementation
+     * copyTo() copies this pid's values down to a hardware PID implementation
      * 
      * @param motorController  device to change
      * @param motorConfig      device's config object
@@ -221,14 +258,6 @@ public class PIDFController extends PIDController {
      * @param smartMaxVel   optional, 0.1 [units/s]
      * @param smartMaxAccel optional 0.01 [units/s^2]
      */
-    public void copyTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot) {
-        copyTo(motorController, motorConfig, slot, m_smartMaxVel, m_smartMaxAccel);
-    }
-
-    public void copyTo(SparkBase motorController, SparkBaseConfig motorConfig) {
-        copyTo(motorController, motorConfig, ClosedLoopSlot.kSlot0, m_smartMaxVel, m_smartMaxAccel);
-    }
-
     public void copyTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot, 
                        double smartMaxVel, double smartMaxAccel) {
         m_smartMaxVel = smartMaxVel;
@@ -246,12 +275,13 @@ public class PIDFController extends PIDController {
 
         REVLibError driveError = motorController.configure(motorConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
         
-        //save hw references for later use in 
+        //save hw references for later use in updates
         if (hw_controller == null) hw_controller = motorController;
         if (hw_config == null) hw_config = motorConfig;
 
         if(driveError != REVLibError.kOk)
             System.out.println("*** ERROR *** SparkMax Flash Failed during copyTo command. Error val=" + driveError);
+        m_changes = false;  //hw is up to date
     }
 
     public void copyChangesTo(SparkBase controller, SparkBaseConfig motorConfig) {
@@ -260,148 +290,19 @@ public class PIDFController extends PIDController {
 
     // compares an updated PIDF with this one and updates it and the hardware
     public void copyChangesTo(SparkBase motorController, SparkBaseConfig motorConfig, ClosedLoopSlot slot) {
-        boolean changed = false;
+        // skip if no changes or no attached hw typical if use PIDF without calling copyTo()
+        if (!m_changes || motorConfig == null || motorController == null) return;
 
-        // skip if no hw, typical if use PIDF without calling copyTo()
-        if (motorConfig == null || motorController == null) return;
-
-        var pidCfg =  motorConfig.closedLoop;
-
-        //accessor lets us get the pid values in the motorController
-        ClosedLoopConfigAccessor pid_acc = (motorController instanceof SparkMax) ?
-            ((SparkMax)motorController).configAccessor.closedLoop :
-            ((SparkFlex)motorController).configAccessor.closedLoop;
+        motorConfig.closedLoop.pidf(this.getP(), this.getI(), this.getD(), this.getF(), slot);        
+        motorConfig.closedLoop.iZone(getIZone(), slot);
         
-        // compare PIDF values with acc, update pidCfg values that have changed
-        if (compare(getP() ,pid_acc.getP()) ) {            
-            pidCfg.p(getP(), slot);
-            changed = true;
-        }
-
-        if (compare(getI(), pid_acc.getI())) {
-            pidCfg.i(getI(), slot);
-            changed = true;
-        }
-
-        if (compare(getD(), pid_acc.getD())) {
-            pidCfg.d(getD(), slot);
-            changed = true;
-        }
-
-        if (compare(getF(), pid_acc.getFF())) {      
-            pidCfg.velocityFF(getF(), slot);
-            changed = true;
-        }
-
-        if (compare(getIZone(), pid_acc.getIZone())) {           
-            pidCfg.iZone(getIZone(), slot);
-            changed = true;
-        }
         // send to HW if we have a pid change, use async so robot loop isn't delayed
-        if (changed) {
-            motorController.configureAsync(motorConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);                
-        }
-    }
-
-    /*
-     * doubles between pidf and the controller won't match exactly
-     * so limit the number of bits compared on the diff.
-     */
-    boolean compare(double x1, Double x2) {
-        double diff = Math.abs(x1 - x2)*100000.0; // 5 sig digits
-        return diff > 0.01;
-    }
-    //TODO - add back for the CTRE controllers (find in older repo)
-
-
-    /**
-     * NT_setup()
-     * 
-     * Set up NetworkTables for PIDF gain settings. This is a debug feature to allow adjustment of
-     * gains without rebuilding and redeploying code. Enabled if the name param is set
-     */
-    private void NT_setup(){
-        table = NetworkTableInstance.getDefault().getTable(NT_Name);
-
-        // Check if entry already exists
-        while(table.containsSubTable(m_name)){
-            System.err.println("NetworkTable SubTable already exists for key `" + m_name + "`.");
-            System.err.println("!!Rename one of the " + m_name + " PIDF Objects!!");
-            m_name = m_name + "-duplicate";
-            System.err.println("Renaming to `" + m_name + "`");
-        }
-        table = table.getSubTable(m_name);
-
-        nt_p = table.getEntry("/Current P");
-        nt_i = table.getEntry("/Current I");
-        nt_d = table.getEntry("/Current D");
-        nt_f = table.getEntry("/Current F");
-
-        //set initial requested values to be current PIDF values
-        nt_p.setDouble(getP());
-        nt_i.setDouble(getI());
-        nt_d.setDouble(getD());
-        nt_f.setDouble(getF());
-
-        // Setup requested entries
-        nt_requested_p = table.getEntry("/Requested P");
-        nt_requested_p.setDouble(getP());
-        nt_requested_i = table.getEntry("/Requested I");
-        nt_requested_i.setDouble(getI());
-        nt_requested_d = table.getEntry("/Requested D");
-        nt_requested_d.setDouble(getD());
-        nt_requested_f = table.getEntry("/Requested F");
-        nt_requested_f.setDouble(getF());
-        
-        NT_enabled = true;
+        motorController.configureAsync(motorConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
+        m_changes = false;
     }
 
     public void NT_update() {
-        // skip if not setup
-        if (!NT_enabled) return;
-
-        // Update readout values
-        nt_p.setDouble(getP());
-        nt_i.setDouble(getI());
-        nt_d.setDouble(getD());
-        nt_f.setDouble(getF());
-
-        // check if requested values are different from current values, update if needed
-        boolean updatePID = false;
-        // Validate P
-        if (nt_requested_p.getDouble(-1) < 0.0) {
-            System.err.print("Invalid P value. Must be a positive double\n");
-        }else if (nt_requested_p.getDouble(-1) != getP()){
-            updatePID = true;
-        }
-        // Validate I
-        if(nt_requested_i.getDouble(-1) < 0.0) {
-            System.err.print("Invalid I value. Must be a positive double\n");
-        }else if (nt_requested_i.getDouble(-1) != getI()){
-            updatePID = true;
-        }
-        // Validate D
-        if(nt_requested_d.getDouble(-1) < 0.0) {
-            System.err.print("Invalid D value. Must be a positive double\n");
-        }else if (nt_requested_d.getDouble(-1) != getD()){
-            updatePID = true;
-        }
-        // Validate F
-        if(nt_requested_f.getDouble(-1) < 0.0) {
-            System.err.print("Invalid FF value. Must be a double\n");
-        }else if (nt_requested_f.getDouble(Double.MIN_VALUE) != getF()){
-            updatePID = true;
-        }
-
-        if (updatePID){
-            System.out.println(m_name + ": Updating PIDF values to requested values");
-            setPIDF(nt_requested_p.getDouble(getP()), 
-                    nt_requested_i.getDouble(getI()), 
-                    nt_requested_d.getDouble(getD()), 
-                    nt_requested_f.getDouble(getF()));
-            
-            // copy values to hw
-            copyChangesTo(hw_controller, hw_config);
-        }
+        // copy values to hw, if needed
+        copyChangesTo(hw_controller, hw_config);        
     }
 }

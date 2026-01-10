@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import edu.wpi.first.util.sendable.Sendable;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 
 /*
@@ -123,6 +125,11 @@ public class SubsystemConfig {
                 m_obj = (m_factory != null) ? 
                     m_factory.get() : 
                     m_Class.getDeclaredConstructor().newInstance();
+                
+                // add sendables for Elastic/SmartDashboard
+                if (m_obj instanceof Subsystem) {
+                   SmartDashboard.putData((Sendable)m_obj);               
+                }
 
             } catch (NoSuchMethodException e) {
                 System.out.println("*** Problem creating " + m_Class.getSimpleName()
