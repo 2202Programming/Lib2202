@@ -217,6 +217,16 @@ public class PIDFController extends PIDController {
         return super.calculate(measurement) + (m_Kf * getSetpoint());
     }
 
+
+    //Expose changes flag as first step of decoupling hardware calls
+    public boolean hasChanged() {
+        return m_changes;
+    }
+
+    public void clearChanged(){
+        m_changes = false;
+    }
+
     /**
      * Copied from base class and feed forward added.
      */
