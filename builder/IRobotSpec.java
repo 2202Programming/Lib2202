@@ -12,6 +12,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.subsystem.swerve.IHeadingProvider;
 import frc.lib2202.subsystem.swerve.config.ChassisConfig;
 import frc.lib2202.subsystem.swerve.config.ModuleConfig;
+import frc.lib2202.util.PhotonvisionConfig;
 
 /**
  * InnerIRobotSpec
@@ -31,6 +32,11 @@ public interface IRobotSpec {
 
     // swerve specs
     default public ChassisConfig getChassisConfig() {
+        return null;
+    }
+
+    // photonvision specs
+    default public PhotonvisionConfig getPVConfig() {
         return null;
     }
 
