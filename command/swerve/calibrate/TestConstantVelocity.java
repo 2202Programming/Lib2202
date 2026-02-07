@@ -65,6 +65,7 @@ public class TestConstantVelocity extends Command {
              initial_positions[i] = meas_pos[i].distanceMeters;
         }
         timer.reset();
+        timer.start();
     }
 
     @Override
