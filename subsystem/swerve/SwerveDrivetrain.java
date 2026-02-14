@@ -76,7 +76,7 @@ public class SwerveDrivetrain extends DriveTrainInterface {
 
   @SuppressWarnings("rawtypes")
   public SwerveDrivetrain(Class mtrClass) {
-      this(SparkMax.class, "rio");
+      this(mtrClass, "rio");
   }
 
   @SuppressWarnings("rawtypes")
