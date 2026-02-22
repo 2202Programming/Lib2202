@@ -16,7 +16,8 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
-import frc.lib2202.subsystem.BaseLimelight;
+import frc.lib2202.subsystem.ILimelight;
+import frc.lib2202.subsystem.LimelightHelpers;
 import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.subsystem.OdometryInterface;
@@ -24,7 +25,8 @@ import frc.lib2202.subsystem.OdometryInterface;
 public class FaceToTag extends Command {
   private final DriveTrainInterface drivetrain;
   private final OdometryInterface odometry;
-  private final BaseLimelight limelight;
+  private final ILimelight limelight;
+  final String llname;
   double TimeOut = 1.0;  //giveup if we take too long
 
   double xSpeed, ySpeed, rot;
@@ -85,6 +87,9 @@ public class FaceToTag extends Command {
     drivetrain = RobotContainer.getSubsystem("drivetrain");
     odometry = RobotContainer.getSubsystem("odometry");
 
+    //need name for Helper calls
+    llname = limelight.getLLName();
+
     addRequirements(drivetrain);
 
     centeringPid = new PIDController(centering_kP, centering_kI, centering_kD);
@@ -124,7 +129,7 @@ public class FaceToTag extends Command {
 
   private void calculate() {
     // getting value from limelight
-    LimelightTarget_Fiducial[] tags = limelight.getAprilTagsFromHelper();
+    LimelightTarget_Fiducial[] tags = LimelightHelpers.getLatestResults(llname).targets_Fiducials;
     double tagXfromCenter = 0;
     hasTarget = false;
 
@@ -179,7 +184,8 @@ public class FaceToTag extends Command {
    */
   @SuppressWarnings("unused")
   private boolean checkForTarget(double tagID) {
-    LimelightTarget_Fiducial[] tags = limelight.getAprilTagsFromHelper();
+    LimelightTarget_Fiducial[] tags = LimelightHelpers.getLatestResults(llname).targets_Fiducials;
+   
     for (LimelightTarget_Fiducial tag : tags) {
       if ((int)tag.fiducialID == tagID) {
         return true;
