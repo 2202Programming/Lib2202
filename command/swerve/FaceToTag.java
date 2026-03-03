@@ -26,8 +26,8 @@ public class FaceToTag extends Command {
   private final DriveTrainInterface drivetrain;
   private final OdometryInterface odometry;
   private final ILimelight limelight;
-  final String llname;
-  double TimeOut = 1.0;  //giveup if we take too long
+  String llname;
+  double TimeOut = 1000000.0;  //giveup if we take too long
 
   double xSpeed, ySpeed, rot;
   SwerveModuleState[] vision_out;
@@ -141,8 +141,8 @@ public class FaceToTag extends Command {
       }
     }
     
-    SmartDashboard.putNumber("TagXFromCenter", tagXfromCenter);
-    SmartDashboard.putBoolean("hasTarget", hasTarget);
+    SmartDashboard.putNumber("F2Tag/XFromCenter", tagXfromCenter);
+    SmartDashboard.putBoolean("F2Tag/hasTarget", hasTarget);
 
     if (hasTarget) {// this should be true all the time unless the tag is lost
 
