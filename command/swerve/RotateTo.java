@@ -4,8 +4,11 @@
 
 package frc.lib2202.command.swerve;
 
+import static frc.lib2202.Constants.DEGperRAD;
+
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
@@ -16,12 +19,11 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.OdometryInterface;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
-import frc.lib2202.util.AprilTag2d;
 
 public class RotateTo extends Command {
   private final DriveTrainInterface drivetrain;
   private final OdometryInterface odometry;
-  private PIDController pid;
+  private final PIDController pid;
   private final double kp = 0.05;
   private final double ki = 0.0;
   private final double kd = 0.0;
@@ -32,21 +34,27 @@ public class RotateTo extends Command {
   private double targetRot;
   private SwerveModuleState[] outputModuleState;
   
-  AprilTag2d targetPose; // Position want to face to
+  Translation2d target; // Position want to face to
 
   //Alliance 
-  final AprilTag2d redTarget;
-  final AprilTag2d blueTarget;
-
-  private Timer timer;
+  final Translation2d redTarget;
+  final Translation2d blueTarget;
+  final private Timer timer;
 
   /** Creates a new RotateTo. */
-  public RotateTo(AprilTag2d redTarget, AprilTag2d blueTarget) {
+   public RotateTo(Translation2d redTarget, Translation2d blueTarget){
+    this(redTarget, blueTarget, 4.0);
+   }
+
+  public RotateTo(Translation2d redTarget, Translation2d blueTarget, double timeout) {
     this.redTarget = redTarget;
     this.blueTarget = blueTarget;
 
     drivetrain = RobotContainer.getSubsystem("drivetrain");
-    odometry = RobotContainer.getSubsystem("odometry");
+    //use vision based odometry, if it exists
+    OdometryInterface odo = RobotContainer.getSubsystemOrNull("vision_odo");
+    this.odometry = (odo != null)  ? odo : RobotContainer.getSubsystem("odometry");
+
     addRequirements(drivetrain);
     pid = new PIDController(kp, ki, kd);
     pid.enableContinuousInput(-180.0, 180.0);
@@ -58,13 +66,12 @@ public class RotateTo extends Command {
   // Called when the command is initially scheduled.
   @Override
   public void initialize() {
-    targetPose = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTarget : redTarget;
+    target = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTarget : redTarget;
    
     timer.restart();
     currentPose = odometry.getPose();
-    targetRot = (Math.atan2(currentPose.getTranslation().getY() - targetPose.location.getY(),
-        currentPose.getTranslation().getX() - targetPose.location.getX())) // [-pi, pi]
-        * 180 / Math.PI;
+    targetRot = (Math.atan2(currentPose.getTranslation().getY() - target.getY(),
+        currentPose.getTranslation().getX() - target.getX())) * DEGperRAD; // [-pi, pi]
   }
 
   // Called every time the scheduler runs while the command is scheduled.
