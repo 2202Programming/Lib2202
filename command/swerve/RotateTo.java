@@ -21,27 +21,31 @@ import frc.lib2202.subsystem.OdometryInterface;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 public class RotateTo extends Command {
-  private final DriveTrainInterface drivetrain;
+  // devices
+  private final DriveTrainInterface drivetrain;   //requirement
   private final OdometryInterface odometry;
   private final PIDController pid;
-  private final double kp = 0.05;
+
+  //parameters
+  private final double kp = 0.05;  //[deg/s / deg-error]
   private final double ki = 0.0;
   private final double kd = 0.0;
-  private final double pos_tol = 10.0;
-  private final double vel_tol = 1.0;
-  private SwerveDriveKinematics kinematics;
+  private final double pos_tol = 2.0; //[deg]
+  private final double vel_tol = 1.0; //[deg/s]
+
+  private final SwerveDriveKinematics kinematics;
   private Pose2d currentPose;
   private double targetRot;
   private SwerveModuleState[] outputModuleState;
   
-  Translation2d target; // Position want to face to
+  Translation2d target; // Position to face, set at init based on alliance
 
   //Alliance 
   final Translation2d redTarget;
   final Translation2d blueTarget;
   final Timer timer;
   final double timeout;
-  final ChassisSpeeds zero_cs;
+  final SwerveModuleState[] zero_sms;
 
   /** Creates a new RotateTo. */
    public RotateTo(Translation2d redTarget, Translation2d blueTarget){
@@ -52,20 +56,37 @@ public class RotateTo extends Command {
     this.redTarget = redTarget;
     this.blueTarget = blueTarget;
     this.timeout = timeout;
+    timer = new Timer();
 
     drivetrain = RobotContainer.getSubsystem("drivetrain");
     //use vision based odometry, if it exists
     OdometryInterface odo = RobotContainer.getSubsystemOrNull("vision_odo");
     this.odometry = (odo != null)  ? odo : RobotContainer.getSubsystem("odometry");
 
-    zero_cs = new ChassisSpeeds(0.0, 0.0, 0.0);
-
     addRequirements(drivetrain);
+
+    // pid for driving rotation angle
     pid = new PIDController(kp, ki, kd);
     pid.enableContinuousInput(-180.0, 180.0);
     pid.setTolerance(pos_tol, vel_tol);
     kinematics = drivetrain.getKinematics();
-    timer = new Timer();
+    zero_sms = kinematics.toSwerveModuleStates(new ChassisSpeeds(0.0, 0.0, 0.0));
+  }
+
+  // allow pid parameters to change
+  public RotateTo setP(double kp) {
+    this.pid.setP(kp);
+    return this;
+  }
+
+  public RotateTo setI(double ki) {
+    this.pid.setI(ki);
+    return this;
+  }
+  
+  public RotateTo setD(double kd) {
+    this.pid.setD(kd);
+    return this;
   }
 
   // Called when the command is initially scheduled.
@@ -98,7 +119,7 @@ public class RotateTo extends Command {
   // Called once the command ends or is interrupted.
   @Override
   public void end(boolean interrupted) {
-    drivetrain.drive(kinematics.toSwerveModuleStates(zero_cs));
+    drivetrain.drive(zero_sms);  // stop moving
     timer.stop();
   }
 
