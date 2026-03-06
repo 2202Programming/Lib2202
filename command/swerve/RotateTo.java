@@ -70,8 +70,9 @@ public class RotateTo extends Command {
    
     timer.restart();
     currentPose = odometry.getPose();
-    targetRot = (Math.atan2(currentPose.getTranslation().getY() - target.getY(),
-        currentPose.getTranslation().getX() - target.getX())) * DEGperRAD; // [-pi, pi]
+    double dy = target.getY() - currentPose.getY();
+    double dx = target.getX() - currentPose.getX();
+    targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
   }
 
   // Called every time the scheduler runs while the command is scheduled.
