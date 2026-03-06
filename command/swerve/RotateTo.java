@@ -39,7 +39,8 @@ public class RotateTo extends Command {
   //Alliance 
   final Translation2d redTarget;
   final Translation2d blueTarget;
-  final private Timer timer;
+  final Timer timer;
+  final double timeout;
 
   /** Creates a new RotateTo. */
    public RotateTo(Translation2d redTarget, Translation2d blueTarget){
@@ -49,6 +50,7 @@ public class RotateTo extends Command {
   public RotateTo(Translation2d redTarget, Translation2d blueTarget, double timeout) {
     this.redTarget = redTarget;
     this.blueTarget = blueTarget;
+    this.timeout = timeout;
 
     drivetrain = RobotContainer.getSubsystem("drivetrain");
     //use vision based odometry, if it exists
@@ -67,12 +69,12 @@ public class RotateTo extends Command {
   @Override
   public void initialize() {
     target = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTarget : redTarget;
-   
-    timer.restart();
     currentPose = odometry.getPose();
     double dy = target.getY() - currentPose.getY();
     double dx = target.getX() - currentPose.getX();
     targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
+    timer.restart();
+    System.out.println("RotateTo -> " + targetRot +" [deg]");
   }
 
   // Called every time the scheduler runs while the command is scheduled.
@@ -100,7 +102,7 @@ public class RotateTo extends Command {
   // Returns true when the command should end.
   @Override
   public boolean isFinished() {
-    return pid.atSetpoint() || timer.hasElapsed(4);
+    return pid.atSetpoint() || timer.hasElapsed(timeout);
   }
 
 }
