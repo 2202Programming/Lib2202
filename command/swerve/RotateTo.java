@@ -123,6 +123,9 @@ public class RotateTo extends Command {
   public void end(boolean interrupted) {
     drivetrain.drive(zero_sms);  // stop moving
     timer.stop();
+    System.out.println("RotateTo Done " + " ended at -> " 
+      + currentPose.getRotation().getDegrees() 
+      + " time=" +timer.get() );
   }
 
   // Returns true when the command should end.
