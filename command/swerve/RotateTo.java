@@ -41,6 +41,7 @@ public class RotateTo extends Command {
   final Translation2d blueTarget;
   final Timer timer;
   final double timeout;
+  final ChassisSpeeds zero_cs;
 
   /** Creates a new RotateTo. */
    public RotateTo(Translation2d redTarget, Translation2d blueTarget){
@@ -56,6 +57,8 @@ public class RotateTo extends Command {
     //use vision based odometry, if it exists
     OdometryInterface odo = RobotContainer.getSubsystemOrNull("vision_odo");
     this.odometry = (odo != null)  ? odo : RobotContainer.getSubsystem("odometry");
+
+    zero_cs = new ChassisSpeeds(0.0, 0.0, 0.0);
 
     addRequirements(drivetrain);
     pid = new PIDController(kp, ki, kd);
@@ -89,13 +92,13 @@ public class RotateTo extends Command {
     outputModuleState = kinematics.toSwerveModuleStates(ChassisSpeeds.fromFieldRelativeSpeeds(
         0,
         0,
-        pid.calculate(currentPose.getRotation().getDegrees(), targetRot),
-        currentPose.getRotation()));
+        pid.calculate(currentPose.getRotation().getDegrees(), targetRot), currentPose.getRotation()));
   }
 
   // Called once the command ends or is interrupted.
   @Override
   public void end(boolean interrupted) {
+    drivetrain.drive(kinematics.toSwerveModuleStates(zero_cs));
     timer.stop();
   }
 
