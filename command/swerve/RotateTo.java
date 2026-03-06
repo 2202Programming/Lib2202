@@ -27,7 +27,7 @@ public class RotateTo extends Command {
   private final PIDController pid;
 
   //parameters
-  private final double kp = 0.05;  //[deg/s / deg-error]
+  private final double kp = 2.5;  //[deg/s / deg-error]  
   private final double ki = 0.0;
   private final double kd = 0.0;
   private final double pos_tol = 2.0; //[deg]
@@ -98,7 +98,7 @@ public class RotateTo extends Command {
     double dx = target.getX() - currentPose.getX();
     targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
     timer.restart();
-    System.out.println("RotateTo -> " + targetRot +" [deg]");
+    System.out.println("RotateTo -> " + targetRot +" [deg]" + " from " + currentPose.getRotation().getDegrees() );
   }
 
   // Called every time the scheduler runs while the command is scheduled.
@@ -110,10 +110,12 @@ public class RotateTo extends Command {
 
   private void calculate() {
     currentPose = odometry.getPose();
+    // keep PID units in degree/s, convert to rad/s for swerve
+    double rot_cmd_rads = pid.calculate(currentPose.getRotation().getDegrees(), targetRot) / DEGperRAD;
     outputModuleState = kinematics.toSwerveModuleStates(ChassisSpeeds.fromFieldRelativeSpeeds(
         0,
         0,
-        pid.calculate(currentPose.getRotation().getDegrees(), targetRot), currentPose.getRotation()));
+        rot_cmd_rads, currentPose.getRotation()));
   }
 
   // Called once the command ends or is interrupted.
