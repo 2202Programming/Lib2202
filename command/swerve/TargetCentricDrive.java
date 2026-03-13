@@ -79,8 +79,9 @@ public class TargetCentricDrive extends Command {
   double centering_kI = 0;
   double centering_kD = 0;
   double centeringPidOutput = 2.0;
-  double vel_tol = 1.0 / 57.3; // [rad/sec]
-  double pos_tol_blind = 5.0 / 57.3; // [rad]
+  
+  double vel_tol = 2.0 ; // [deg/s]
+  double pos_tol_blind = 2.0; // [deg/s]
   double pos_tol_tag = 2.5;
   double max_rot_rate = 45.0; // [deg/s]
   double min_rot_rate = 6.0;
@@ -133,9 +134,28 @@ public class TargetCentricDrive extends Command {
 
     // PID for when tag is not visable
     blindPid = new PIDController(blindPid_kp, blindPid_ki, blindPid_kd); // [rad]
-    blindPid.enableContinuousInput(-Math.PI, Math.PI); // [rad]
-    blindPid.setTolerance(pos_tol_blind, vel_tol); // Not being used
+    blindPid.enableContinuousInput(-180.0, 180.0); // [deg/s]
+    blindPid.setTolerance(pos_tol_blind, vel_tol); 
   }
+
+// allow pid parameters to change
+  public TargetCentricDrive setP(double kp) {
+    this.blindPid.setP(kp);
+    return this;
+  }
+
+  public TargetCentricDrive setI(double ki) {
+    this.blindPid.setI(ki);
+    return this;
+  }
+  
+  public TargetCentricDrive setD(double kd) {
+    this.blindPid.setD(kd);
+    return this;
+  }
+
+
+
 
   @Override
   public void initialize() {
@@ -198,14 +218,14 @@ public class TargetCentricDrive extends Command {
       //incase no target was set, unlikely.
       return 0.0;
     }
-
-    targetRot = Math.atan2(currentPose.getY() - target.getY(),
-                           currentPose.getX() - target.getX()); // [-pi, pi]
-
+    double dy = target.getY() - currentPose.getY();
+    double dx = target.getX() - currentPose.getX();
+    targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
+    
     SmartDashboard.putNumber("TargetCentricDrive/Odo_target", targetRot * DEGperRAD);
     // use pid to calculate rot_cmd[rad/s] using targetRot angle as setpoint
-    double rot_cmd = blindPid.calculate(currentPose.getRotation().getRadians(), targetRot);  //[rad/s]
-    return rot_cmd; // [rad/s]
+    double rot_cmd = blindPid.calculate(currentPose.getRotation().getDegrees(), targetRot);  //[deg/s]
+    return rot_cmd/DEGperRAD; // [rad/s]
   }
 
   private double calculateRotFromTarget(double tagXfromCenter) {
