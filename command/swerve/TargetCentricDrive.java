@@ -107,7 +107,7 @@ public class TargetCentricDrive extends Command {
   }
 
   // command deals with either tagID or translation tracking
-  public TargetCentricDrive(Translation2d redTarget, Translation2d blueTarget,
+  private TargetCentricDrive(Translation2d redTarget, Translation2d blueTarget,
                             AprilTag redTag,         AprilTag blueTag, String limelightName) {
     // deal with tag or given Translations, get tranlation2d from tags if given
     this.redTarget  = (redTarget != null)  ? redTarget  : new Translation2d(redTag.pose.getX(), redTag.pose.getY());
