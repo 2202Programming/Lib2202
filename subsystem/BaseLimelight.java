@@ -9,9 +9,8 @@ import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib2202.Constants;
 import frc.lib2202.builder.RobotContainer;
-import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
 
-
+@Deprecated
 public abstract class BaseLimelight extends SubsystemBase {
     protected final int FRAME_MOD = 20;
     protected NetworkTable table;
@@ -140,23 +139,30 @@ public abstract class BaseLimelight extends SubsystemBase {
         return filteredX;
     }
 
+
+    //LimelightHelpers.getLatestResults() must be enabled specially, and isn't recommended??
+    // Replacing with RawFiducials which doesn't require the JSON parsing - dpl 3/3/2026
     public double[] getAprilTagID() {
-        LimelightHelpers.LimelightTarget_Fiducial[] apriltag = LimelightHelpers.getLatestResults(name).targets_Fiducials;
-        double[] tagIDs = new double[apriltag.length];
-        for (int i = 0; i < apriltag.length; i++) {
-            tagIDs[i] = apriltag[i].fiducialID;
+        //LimelightHelpers.LimelightTarget_Fiducial[] apriltag = LimelightHelpers.getLatestResults(name).targets_Fiducials;
+        LimelightHelpers.RawFiducial[] tags = LimelightHelpers.getRawFiducials(this.name);
+        double[] tagIDs = new double[tags.length];
+        for (int i = 0; i < tags.length; i++) {
+            tagIDs[i] = tags[i].id;
         }
         return tagIDs;
     }
+
+    // 3/3/2026 dpl see above comment...
+    public LimelightHelpers.RawFiducial[] getAprilTagsFromHelper(){
+        return LimelightHelpers.getRawFiducials(this.name);
+    }
+
 
     public double getTA() {
         return LimelightHelpers.getTA(this.name);
     }
 
-    public LimelightTarget_Fiducial[] getAprilTagsFromHelper(){
-        return LimelightHelpers.getLatestResults(name).targets_Fiducials;
-    }
-
+   
     public double getFilteredArea() {
         return filteredArea;
     }

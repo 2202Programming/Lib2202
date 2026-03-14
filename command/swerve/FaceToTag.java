@@ -4,6 +4,8 @@
 
 package frc.lib2202.command.swerve;
 
+import static frc.lib2202.Constants.DEGperRAD;
+
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -18,16 +20,16 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.ILimelight;
 import frc.lib2202.subsystem.LimelightHelpers;
-import frc.lib2202.subsystem.LimelightHelpers.LimelightTarget_Fiducial;
-import frc.lib2202.subsystem.swerve.DriveTrainInterface;
+import frc.lib2202.subsystem.LimelightHelpers.RawFiducial;
 import frc.lib2202.subsystem.OdometryInterface;
+import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 public class FaceToTag extends Command {
   private final DriveTrainInterface drivetrain;
   private final OdometryInterface odometry;
   private final ILimelight limelight;
-  final String llname;
-  double TimeOut = 1.0;  //giveup if we take too long
+  String llname;
+  double TimeOut = 3.0;  //giveup if we take too long
 
   double xSpeed, ySpeed, rot;
   SwerveModuleState[] vision_out;
@@ -42,17 +44,18 @@ public class FaceToTag extends Command {
   Rotation2d currentAngle;
   double min_rot_rate = 6.0;
 
-  final double vel_tol = 1.0;
-  final double pos_tol = 1.0;
+  final double vel_tol = 2.0;  // [deg/s]
+  final double pos_tol = 2.0;  // [deg]
   final double max_rot_rate = 45.0; // [deg/s]
 
-  final double high_tape_Y = 21.0;
-  final double mid_tape_Y = 0.0;
-  final double high_tape_goal = -16.0;
-  final double mid_tape_goal = -24.6;
-  final double max_yaw_error = 15.0; // max number of degrees the target can be off and we still think it's legit
-  boolean lastValidity = false;
-  boolean currentValidity = false;
+  // final double high_tape_Y = 21.0;
+  // final double mid_tape_Y = 0.0;
+  // final double high_tape_goal = -16.0;
+  // final double mid_tape_goal = -24.6;
+  // final double max_yaw_error = 15.0; // max number of degrees the target can be off and we still think it's legit
+  // boolean lastValidity = false;
+  // boolean currentValidity = false;
+
   private Timer timer;
   //private boolean valid_tag = false;
   private int targetID;
@@ -79,7 +82,12 @@ public class FaceToTag extends Command {
    *
    * @param TagID Takes the tag we are looking for.
    */
-  public FaceToTag(int redTargetID, int blueTargetID) {
+
+   public FaceToTag(int targetID, double timeout) {
+    this(targetID, targetID, timeout);  //use same target for either red or blue
+  }
+
+  public FaceToTag(int redTargetID, int blueTargetID, double timeout) {
     this.redTargetID = redTargetID;
     this.blueTargetID = blueTargetID;
 
@@ -98,19 +106,13 @@ public class FaceToTag extends Command {
     kinematics = drivetrain.getKinematics();
   }
 
-  public FaceToTag(int targetID) {
-    this(targetID, targetID);  //use same target for either red or blue
-  }
-
   // Called when the command is initially scheduled.
   @Override
   public void initialize() {
-    //HACK -KO face to speaker
     targetID = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTargetID: redTargetID;
     no_turn_states = kinematics.toSwerveModuleStates(zero_cs);
     vision_out = kinematics.toSwerveModuleStates(zero_cs);
     timer.restart();
-
     System.out.println("FaceToTag: initialize, initial heading: " + odometry.getPose().getRotation().getDegrees());
   }
 
@@ -129,26 +131,26 @@ public class FaceToTag extends Command {
 
   private void calculate() {
     // getting value from limelight
-    LimelightTarget_Fiducial[] tags = LimelightHelpers.getLatestResults(llname).targets_Fiducials;
+    RawFiducial[] tags = LimelightHelpers.getRawFiducials(llname);
     double tagXfromCenter = 0;
     hasTarget = false;
 
-    for (LimelightTarget_Fiducial tag : tags) {
-      if (tag.fiducialID == targetID) {
-        tagXfromCenter = tag.tx;
+    for (RawFiducial tag : tags) {
+      if (tag.id == targetID) {
+        tagXfromCenter = tag.txnc;
         hasTarget = true;
         break;
       }
     }
     
-    SmartDashboard.putNumber("TagXFromCenter", tagXfromCenter);
-    SmartDashboard.putBoolean("hasTarget", hasTarget);
+    SmartDashboard.putNumber("Face2Tag/XFromCenter", tagXfromCenter);
+    SmartDashboard.putBoolean("Face2Tag/hasTarget", hasTarget);
 
     if (hasTarget) {// this should be true all the time unless the tag is lost
 
       centeringPidOutput = centeringPid.calculate(tagXfromCenter, 0.0);
       double min_rot = Math.signum(centeringPidOutput) * min_rot_rate;
-      rot = MathUtil.clamp(centeringPidOutput + min_rot, -max_rot_rate, max_rot_rate) / 57.3; // convert to radians
+      rot = MathUtil.clamp(centeringPidOutput + min_rot, -max_rot_rate, max_rot_rate) / DEGperRAD; // convert to radians
       vision_out = kinematics.toSwerveModuleStates(ChassisSpeeds.fromFieldRelativeSpeeds(
           0,
           0,
@@ -175,22 +177,4 @@ public class FaceToTag extends Command {
     return centeringPid.atSetpoint() || timer.hasElapsed(TimeOut);// end if it takes more than 3 sec checkForTarget to make sure
   }
 
-  /**
-   * Check if limelight can see the target.
-   * 
-   * @param tagID tagID to check for in limelight
-   * @return {@code true} if the target is found in limelight, {@code false} if
-   *         not.
-   */
-  @SuppressWarnings("unused")
-  private boolean checkForTarget(double tagID) {
-    LimelightTarget_Fiducial[] tags = LimelightHelpers.getLatestResults(llname).targets_Fiducials;
-   
-    for (LimelightTarget_Fiducial tag : tags) {
-      if ((int)tag.fiducialID == tagID) {
-        return true;
-      }
-    }
-    return false;
-  }
 }

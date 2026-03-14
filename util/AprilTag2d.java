@@ -2,6 +2,8 @@ package frc.lib2202.util;
 
 import edu.wpi.first.math.geometry.Translation2d;
 
+//Prefer the edu.wpi.first.apriltag.AprilTag class;
+@Deprecated
 public class AprilTag2d {
     public Translation2d location;
     public int ID;
