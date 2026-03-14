@@ -193,7 +193,7 @@ public class SwerveModuleMK3 {
                                     ", drv=" +driveMtr.getDeviceId()+")";    
     calibrate();
     simulationInit(specs);
-    getWatcher();
+    //getWatcher(); // no longer auto start watchers
   }
 
   // PID accessor for use in Test/Tune Commands
