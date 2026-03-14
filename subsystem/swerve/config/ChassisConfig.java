@@ -5,7 +5,7 @@ import frc.lib2202.util.PIDFController;
 public class ChassisConfig {
 
   // have defaults if no chassis specific PIDF for swerve modules are given
-  static PIDFController defaultDrivePIDF = new PIDFController(0.085, 0.00055, 0.0, 0.21292);
+  static PIDFController defaultDrivePIDF = new PIDFController(0.085, 0.00055, 0.0, 12.0 * 0.21292);
   static PIDFController defaultAnglePIDF = new PIDFController(0.01, 0.0, 0.0, 0.0);
 
   // Kinematics model - wheel offsets from center of robot (0, 0)

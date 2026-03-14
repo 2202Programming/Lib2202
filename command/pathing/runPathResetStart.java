@@ -10,12 +10,15 @@ import com.pathplanner.lib.path.PathPlannerPath;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.OdometryInterface;
 
 //This command is a hack to reset our current pose to path start pose
 //since we can't figure out how to make autobuilder do this
+// 2026 mark to remove, we don't use this often, ever?
+@Deprecated(since = "2026", forRemoval = true)
 public class runPathResetStart extends Command {
   
   Command pathCommand;
@@ -48,8 +51,9 @@ public class runPathResetStart extends Command {
       pathCommand = AutoBuilder.followPath(path);
   
       odometry.setPose(startPose);
-      new InstantCommand(odometry::printPose).schedule();
-      pathCommand.schedule();
+      CommandScheduler.getInstance().schedule(new InstantCommand(odometry::printPose));
+      //pathCommand.schedule();
+      CommandScheduler.getInstance().schedule(pathCommand);
     
     } catch (Exception e) {
       DriverStation.reportError("Big oops: " + e.getMessage(), e.getStackTrace());

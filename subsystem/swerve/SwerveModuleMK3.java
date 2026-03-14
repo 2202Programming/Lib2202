@@ -1,28 +1,31 @@
 package frc.lib2202.subsystem.swerve;
 
+import static frc.lib2202.Constants.DEGperRAD;
+import static frc.lib2202.Constants.DT;
+
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.sim.CANcoderSimState;
-import com.revrobotics.spark.SparkBase.ControlType;
-import com.revrobotics.spark.SparkBase.PersistMode;
-import com.revrobotics.spark.SparkBase.ResetMode;
-import com.revrobotics.spark.config.SparkMaxConfig;
-import com.revrobotics.spark.config.ClosedLoopConfig.FeedbackSensor;
-import com.revrobotics.spark.config.EncoderConfigAccessor;
-import com.revrobotics.spark.config.SparkBaseConfig;
-import com.revrobotics.spark.config.SparkFlexConfig;
-import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.ClosedLoopSlot;
-import com.revrobotics.spark.SparkBase;
-import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.SparkSim;
 import com.revrobotics.REVLibError;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.sim.SparkFlexSim;
 import com.revrobotics.sim.SparkMaxSim;
 import com.revrobotics.sim.SparkRelativeEncoderSim;
+import com.revrobotics.spark.ClosedLoopSlot;
+import com.revrobotics.spark.FeedbackSensor;
+import com.revrobotics.spark.SparkBase;
+import com.revrobotics.spark.SparkBase.ControlType;
+import com.revrobotics.PersistMode;
+import com.revrobotics.ResetMode;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkFlex;
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkSim;
+import com.revrobotics.spark.config.EncoderConfigAccessor;
+import com.revrobotics.spark.config.SparkBaseConfig;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+import com.revrobotics.spark.config.SparkFlexConfig;
+import com.revrobotics.spark.config.SparkMaxConfig;
 
 import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -44,8 +47,6 @@ import frc.lib2202.command.WatcherCmd;
 import frc.lib2202.subsystem.swerve.config.ChassisConfig;
 import frc.lib2202.util.ModMath;
 import frc.lib2202.util.PIDFController;
-import static frc.lib2202.Constants.DEGperRAD;
-import static frc.lib2202.Constants.DT;
 
 public class SwerveModuleMK3 {
   public final String NT_Name = "DriveModules";
@@ -389,13 +390,13 @@ public class SwerveModuleMK3 {
     m_angle_delta = (Math.abs(state.speedMetersPerSecond) < .01) ? 0.0 : m_angle_delta;
 
     // now add that delta to unbounded Neo angle, m_internal isn't range bound
-    angleMotorPID.setReference(angleCmdInvert * (m_internalAngle + m_angle_delta), ControlType.kPosition);
+    angleMotorPID.setSetpoint(angleCmdInvert * (m_internalAngle + m_angle_delta), ControlType.kPosition);
 
     //save target vel for plots
     m_vel_target = state.speedMetersPerSecond;
     
     // use velocity control
-    driveMotorPID.setReference(state.speedMetersPerSecond, ControlType.kVelocity);
+    driveMotorPID.setSetpoint(state.speedMetersPerSecond, ControlType.kVelocity);
   }
 
   /*

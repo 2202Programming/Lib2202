@@ -43,6 +43,7 @@ public class TestRotateVelocity extends Command {
 
     @Override
     public void initialize() {
+        drivetrain.setPositions(0.0);
         odometry.setPose(new Pose2d(0.0, 0.0, heading0));
         var x_vel = 0.0;
         var y_vel = 0.0;
@@ -53,6 +54,7 @@ public class TestRotateVelocity extends Command {
         }
         timer.reset();
         out_states = kinematics.toSwerveModuleStates(moving);
+        timer.start();
     }
 
     @Override
@@ -75,6 +77,8 @@ public class TestRotateVelocity extends Command {
     }
 
     public void report_results() {
+        //TODO fix math here for linear distance for given rotation and chasssis geometry.
+        // this math is wrong.  - dpl 2/7/2026
         double expected_distance = omega * timer.get();
         System.out.println("ConstantVelocityTest ran for " + timer.get() + " seconds.");
         System.out.println("Expected distance: " + expected_distance + "[m]");
