@@ -8,6 +8,10 @@ import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 
 public interface OdometryInterface {
     // core odometry API
+    default public void autoSetPose(Pose2d initialPose) {// use fiatted position from pp if ll or pv don't have a multitag
+        // just use what is given if not overridden
+        setPose(initialPose);
+    }
     public void setPose(Pose2d newPose);   // new x,y,heading
     public void setAnglePose(Rotation2d rot); // new heading, keeps x,y
     public void setTranslation(Translation2d newPosition); // new xy, no gyro reset

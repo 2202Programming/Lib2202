@@ -28,7 +28,7 @@ public class AutoPPConfigure {
             // Configure the AutoBuilder last
             AutoBuilder.configure(
                     odometry::getPose, // Robot pose supplier
-                    odometry::setPose, // Method to reset odometry (will be called if your auto has a starting pose)
+                    odometry::autoSetPose, // Method to reset odometry (will be called if your auto has a starting pose)
                     sdt::getChassisSpeeds, // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
                     sdt::driveRobotRelative, // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
                     new PPHolonomicDriveController( // HolonomicPathFollowerConfig,                                                   

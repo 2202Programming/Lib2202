@@ -7,7 +7,7 @@ package frc.lib2202.subsystem;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
-
+@Deprecated
 public class Limelight extends BaseLimelight {
  // BaseLimelight contains working vars and API accessors
   public Limelight(){

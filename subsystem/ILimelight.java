@@ -3,6 +3,7 @@ package frc.lib2202.subsystem;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.geometry.Rotation2d;
 import frc.lib2202.subsystem.LimelightHelpers.IMUData;
+import frc.lib2202.subsystem.LimelightHelpers.RawFiducial;
 
 // fairly complete set of commads to support various LL modes,
 // a composite of what we've used over past few years.
@@ -106,4 +107,15 @@ public interface ILimelight {
     default public void normalPowerMode() {
         LimelightHelpers.SetThrottle(getLLName(), 0); 
     }
-}
+
+    //Returns the RawFiducial for the tagID or null if we don't see it.
+    default public RawFiducial checkForTarget(int tagID) {
+        RawFiducial[] tags = LimelightHelpers.getRawFiducials(getLLName());        
+        for (RawFiducial tag : tags) {
+            if (tag.id == tagID) 
+                return tag;                     
+        }
+        return null;
+    }
+}        
+
