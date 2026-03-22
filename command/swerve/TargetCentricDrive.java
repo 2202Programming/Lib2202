@@ -61,10 +61,10 @@ public class TargetCentricDrive extends Command {
   final RobotLimits limits;
 
   // Alliance aware targets either Translation2d or a AprilTag
-  final Translation2d redTarget;
-  final AprilTag redTag;
-  final Translation2d blueTarget;
-  final AprilTag blueTag;
+  Translation2d redTarget;
+  AprilTag redTag;
+  Translation2d blueTarget;
+  AprilTag blueTag;
 
   // Limelight PID - to command rotation to target
   PIDController blindPid;
@@ -83,6 +83,12 @@ public class TargetCentricDrive extends Command {
   double centering_kI = 0;
   double centering_kD = 0;
   double centeringPidOutput = 2.0;
+
+  // Targeter PID
+  PIDController targeterPid;
+  double targeter_kP = 2.0; 
+  double targeter_kI = 0;
+  double targeter_kD = 0;
 
   double vel_tol = 2.0; // [deg/s]
   double pos_tol_blind = 2.0; // [deg/s]
@@ -120,11 +126,15 @@ public class TargetCentricDrive extends Command {
   private TargetCentricDrive(Translation2d redTarget, Translation2d blueTarget,
       AprilTag redTag, AprilTag blueTag, String limelightName, TargeterInterface targeter) {
     // deal with tag or given Translations, get tranlation2d from tags if given
-    this.redTarget = (redTarget != null) ? redTarget : new Translation2d(redTag.pose.getX(), redTag.pose.getY());
-    this.blueTarget = (blueTarget != null) ? blueTarget : new Translation2d(blueTag.pose.getX(), blueTag.pose.getY());
-    this.blueTag = blueTag;
+    this.redTarget = redTarget;
+    this.blueTarget = blueTarget;
     this.redTag = redTag;
+    this.blueTag = blueTag;
     this.targeter = targeter;
+    if (targeter == null) {
+      this.redTarget = (redTarget != null) ? redTarget : new Translation2d(redTag.pose.getX(), redTag.pose.getY());
+      this.blueTarget = (blueTarget != null) ? blueTarget : new Translation2d(blueTag.pose.getX(), blueTag.pose.getY());
+    }
 
     this.dc = RobotContainer.getSubsystem("DC"); // driverControls
     this.drivetrain = RobotContainer.getSubsystem("drivetrain");
@@ -146,6 +156,12 @@ public class TargetCentricDrive extends Command {
     blindPid = new PIDController(blindPid_kp, blindPid_ki, blindPid_kd); // [rad]
     blindPid.enableContinuousInput(-180.0, 180.0); // [deg/s]
     blindPid.setTolerance(pos_tol_blind, vel_tol);
+
+    // PID for targeter
+    targeterPid = new PIDController(targeter_kP, targeter_kI, targeter_kD); // [rad]
+    targeterPid.enableContinuousInput(-180.0, 180.0); // [deg/s]
+    targeterPid.setTolerance(pos_tol_blind, vel_tol);
+
   }
 
   // allow pid parameters to change
@@ -211,11 +227,7 @@ public class TargetCentricDrive extends Command {
         break;
 
       case TargeterTrack:
-        target = targeter.getMotionCorrectedTarget();
-        double dy = target.getY() - currentPose.getY();
-        double dx = target.getX() - currentPose.getX();
-        targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
-        this.rot_cmd = targetRot;
+        this.rot_cmd = calculateRotFromTargeter();
         break;
     }
 
@@ -245,6 +257,21 @@ public class TargetCentricDrive extends Command {
     SmartDashboard.putNumber("TargetCentricDrive/Odo_target", targetRot * DEGperRAD);
     // use pid to calculate rot_cmd[rad/s] using targetRot angle as setpoint
     double rot_cmd = blindPid.calculate(currentPose.getRotation().getDegrees(), targetRot); // [deg/s]
+    return rot_cmd / DEGperRAD; // [rad/s]
+  }
+
+  private double calculateRotFromTargeter() {
+    if (targeter == null) {
+      // incase no targeter was set, unlikely.
+      return 0.0;
+    }
+    double dy = targeter.getMotionCorrectedTarget().getY() - currentPose.getY();
+    double dx = targeter.getMotionCorrectedTarget().getX() - currentPose.getX();
+    targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
+
+    SmartDashboard.putNumber("TargetCentricDrive/targeter_target", targetRot * DEGperRAD);
+    // use pid to calculate rot_cmd[rad/s] using targetRot angle as setpoint
+    double rot_cmd = targeterPid.calculate(currentPose.getRotation().getDegrees(), targetRot); // [deg/s]
     return rot_cmd / DEGperRAD; // [rad/s]
   }
 
