@@ -19,7 +19,6 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.lib2202.builder.RobotContainer;
 import frc.lib2202.subsystem.OdometryInterface;
-import frc.lib2202.subsystem.TargeterInterface;
 import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 
 public class RotateTo extends Command {
@@ -51,7 +50,6 @@ public class RotateTo extends Command {
   final Timer timer;
   final double timeout;
   final SwerveModuleState[] zero_sms;
-  final TargeterInterface targeter;
 
   /** Creates a new RotateTo. */
   public RotateTo(Translation2d redTarget, Translation2d blueTarget) {
@@ -63,7 +61,6 @@ public class RotateTo extends Command {
 
     this.redTarget = null;
     this.blueTarget = null;
-    this.targeter = null;
     this.timeout = timeout;
     this.blueTargetRot = blueTargetRot;
     this.redTargetRot = redTargetRot;
@@ -89,43 +86,12 @@ public class RotateTo extends Command {
     this(targetRot, targetRot, 4.0);
   }
 
-  public RotateTo(TargeterInterface targeter){
-    this(targeter.getMotionCorrectedTarget(),targeter.getMotionCorrectedTarget(), 4.0);
-  }
-
-  //use a constantly updating target during drive supplied by a targeter subsystem
-  public RotateTo(TargeterInterface targeter, double timeout){
-    this.redTarget = null;
-    this.blueTarget = null;
-    this.timeout = timeout;
-    this.blueTargetRot = null;
-    this.redTargetRot = null;
-    this.targeter = targeter;
-    timer = new Timer();
-
-    drivetrain = RobotContainer.getSubsystem("drivetrain");
-    // use vision based odometry, if it exists
-    OdometryInterface odo = RobotContainer.getSubsystemOrNull("vision_odo");
-    this.odometry = (odo != null) ? odo : RobotContainer.getSubsystem("odometry");
-
-    addRequirements(drivetrain);
-
-    // pid for driving rotation angle
-    pid = new PIDController(kp, ki, kd);
-    pid.enableContinuousInput(-180.0, 180.0);
-    pid.setTolerance(pos_tol, vel_tol);
-    kinematics = drivetrain.getKinematics();
-    zero_sms = kinematics.toSwerveModuleStates(new ChassisSpeeds(0.0, 0.0, 0.0));
-  }
-
-
   public RotateTo(Translation2d redTarget, Translation2d blueTarget, double timeout) {
     this.redTarget = redTarget;
     this.blueTarget = blueTarget;
     this.timeout = timeout;
     this.blueTargetRot = null;
     this.redTargetRot = null;
-    this.targeter = null;
     timer = new Timer();
 
     drivetrain = RobotContainer.getSubsystem("drivetrain");
@@ -165,17 +131,12 @@ public class RotateTo extends Command {
     target = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTarget : redTarget;
     targetRot2d = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTargetRot : redTargetRot;
     currentPose = odometry.getPose();
-    if (target != null) { //target based
+    if (target != null) {
       double dy = target.getY() - currentPose.getY();
       double dx = target.getX() - currentPose.getX();
       targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
-    } else if (targetRot2d != null) { // rotation based
+    } else {
       targetRot = targetRot2d.getDegrees();
-    } else { //targeter based
-      target = targeter.getMotionCorrectedTarget();      
-      double dy = target.getY() - currentPose.getY();
-      double dx = target.getX() - currentPose.getX();
-      targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
     }
     timer.restart();
     System.out.println("RotateTo -> " + targetRot + " [deg]" + " from " + currentPose.getRotation().getDegrees());
@@ -190,14 +151,6 @@ public class RotateTo extends Command {
 
   private void calculate() {
     currentPose = odometry.getPose();
-
-    if (targeter != null) { // update new target every cycle if targeter based, calculate new rotation target
-      target = targeter.getMotionCorrectedTarget();      
-      double dy = target.getY() - currentPose.getY();
-      double dx = target.getX() - currentPose.getX();
-      targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
-    }
-
     // keep PID units in degree/s, convert to rad/s for swerve
     double rot_cmd_rads = pid.calculate(currentPose.getRotation().getDegrees(), targetRot) / DEGperRAD;
     outputModuleState = kinematics.toSwerveModuleStates(ChassisSpeeds.fromFieldRelativeSpeeds(
