@@ -23,19 +23,23 @@ import frc.lib2202.subsystem.swerve.DriveTrainInterface;
 import frc.lib2202.subsystem.ILimelight;
 import frc.lib2202.subsystem.LimelightHelpers.RawFiducial;
 import frc.lib2202.subsystem.OdometryInterface;
+import frc.lib2202.subsystem.TargeterInterface;
 import frc.lib2202.subsystem.hid.HID_Subsystem;
 
 /**
  * 
-  Driver controls the robot using field centric driving, but rotation will face the target.
-    X,Y, Rotation
-**/
+ * Driver controls the robot using field centric driving, but rotation will face
+ * the target.
+ * X,Y, Rotation
+ **/
 public class TargetCentricDrive extends Command {
 
   public enum state {
     Init("Init"),
     BlindTrack("BlindTrack"), // uses vision/odometry to track
-    TagTrack("TagTrack"); // we can see the tag, use it
+    TagTrack("TagTrack"), // we can see the tag, use it
+    TargeterTrack("TargeterTrack");
+
     private String name;
 
     private state(String name) {
@@ -51,7 +55,7 @@ public class TargetCentricDrive extends Command {
   final DriveTrainInterface drivetrain;
   final OdometryInterface odometry;
   final ILimelight limelight;
-
+  final TargeterInterface targeter;
   final SwerveDriveKinematics kinematics;
   final HID_Subsystem dc;
   final RobotLimits limits;
@@ -71,7 +75,7 @@ public class TargetCentricDrive extends Command {
   double targetRot;
   Pose2d currentPose;
   Translation2d target; // target location x,y to face to
-  AprilTag  targetTag;  // will be non-zero if looking for AprilTag
+  AprilTag targetTag; // will be non-zero if looking for AprilTag
 
   // odometery PID
   PIDController centeringPid;
@@ -79,8 +83,8 @@ public class TargetCentricDrive extends Command {
   double centering_kI = 0;
   double centering_kD = 0;
   double centeringPidOutput = 2.0;
-  
-  double vel_tol = 2.0 ; // [deg/s]
+
+  double vel_tol = 2.0; // [deg/s]
   double pos_tol_blind = 2.0; // [deg/s]
   double pos_tol_tag = 2.5;
   double max_rot_rate = 45.0; // [deg/s]
@@ -99,22 +103,28 @@ public class TargetCentricDrive extends Command {
 
   // TagID based tracking
   public TargetCentricDrive(AprilTag redTag, AprilTag blueTag) {
-    this(null, null, redTag, blueTag, "limelight");
+    this(null, null, redTag, blueTag, "limelight", null);
   }
 
   // General Translation2d tracking
   public TargetCentricDrive(Translation2d redTarget, Translation2d blueTarget) {
-    this(redTarget, blueTarget, null, null, "limelight");
+    this(redTarget, blueTarget, null, null, "limelight", null);
+  }
+
+  // Targeter based tracking
+  public TargetCentricDrive(TargeterInterface targeter) {
+    this(null, null, null, null, "limelight", targeter);
   }
 
   // command deals with either tagID or translation tracking
   private TargetCentricDrive(Translation2d redTarget, Translation2d blueTarget,
-                            AprilTag redTag,         AprilTag blueTag, String limelightName) {
+      AprilTag redTag, AprilTag blueTag, String limelightName, TargeterInterface targeter) {
     // deal with tag or given Translations, get tranlation2d from tags if given
-    this.redTarget  = (redTarget != null)  ? redTarget  : new Translation2d(redTag.pose.getX(), redTag.pose.getY());
+    this.redTarget = (redTarget != null) ? redTarget : new Translation2d(redTag.pose.getX(), redTag.pose.getY());
     this.blueTarget = (blueTarget != null) ? blueTarget : new Translation2d(blueTag.pose.getX(), blueTag.pose.getY());
     this.blueTag = blueTag;
     this.redTag = redTag;
+    this.targeter = targeter;
 
     this.dc = RobotContainer.getSubsystem("DC"); // driverControls
     this.drivetrain = RobotContainer.getSubsystem("drivetrain");
@@ -135,10 +145,10 @@ public class TargetCentricDrive extends Command {
     // PID for when tag is not visable
     blindPid = new PIDController(blindPid_kp, blindPid_ki, blindPid_kd); // [rad]
     blindPid.enableContinuousInput(-180.0, 180.0); // [deg/s]
-    blindPid.setTolerance(pos_tol_blind, vel_tol); 
+    blindPid.setTolerance(pos_tol_blind, vel_tol);
   }
 
-// allow pid parameters to change
+  // allow pid parameters to change
   public TargetCentricDrive setP(double kp) {
     this.blindPid.setP(kp);
     return this;
@@ -148,19 +158,18 @@ public class TargetCentricDrive extends Command {
     this.blindPid.setI(ki);
     return this;
   }
-  
+
   public TargetCentricDrive setD(double kd) {
     this.blindPid.setD(kd);
     return this;
   }
 
-
-
-
   @Override
   public void initialize() {
     target = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTarget : redTarget;
     targetTag = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTag : redTag;
+    if (targeter != null)
+      target = targeter.getMotionCorrectedTarget();
     currentState = state.Init;
     SmartDashboard.putString("TargetCentricDrive/State", currentState.toString());
   }
@@ -170,23 +179,26 @@ public class TargetCentricDrive extends Command {
     double tagXfromCenter = 0.0;
     this.hasTarget = false;
     currentPose = odometry.getPose();
-    currrentHeading =  currentPose.getRotation();
+    currrentHeading = currentPose.getRotation();
 
-    // see if we have a target
-    if (targetTag != null) {
-      tagXfromCenter = checkForTarget(targetTag.ID); // updates tagXfromCenter, this.hasTarget
-    }
-    
-    if (this.hasTarget) {
-      currentState = state.TagTrack;
+    if (targeter != null) { // must be targeter based tracking
+      currentState = state.TargeterTrack;
     } else {
-      currentState = state.BlindTrack; //use odometry alone
-    }
+      // see if we have a target
+      if (targetTag != null) {
+        tagXfromCenter = checkForTarget(targetTag.ID); // updates tagXfromCenter, this.hasTarget
+      }
 
+      if (this.hasTarget) {
+        currentState = state.TagTrack;
+      } else {
+        currentState = state.BlindTrack; // use odometry alone
+      }
+    }
     this.rot_cmd = calculateRotFromOdometery(); // always feed PID, even if rot gets overwritten later.
 
     switch (currentState) {
-      case TagTrack:      
+      case TagTrack:
         this.rot_cmd = calculateRotFromTarget(tagXfromCenter); // has note, can see target tag, close loop via limelight
         break;
 
@@ -197,9 +209,17 @@ public class TargetCentricDrive extends Command {
       case BlindTrack:
         // can't see target Tag, so use odometery for rot (already run)
         break;
+
+      case TargeterTrack:
+        target = targeter.getMotionCorrectedTarget();
+        double dy = target.getY() - currentPose.getY();
+        double dx = target.getX() - currentPose.getX();
+        targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
+        this.rot_cmd = targetRot;
+        break;
     }
 
-    calculate(); // used to calculate X and Y from joysticks, and rotation from one of methods                
+    calculate(); // used to calculate X and Y from joysticks, and rotation from one of methods
     drivetrain.drive(output_states);
     SmartDashboard.putString("TargetCentricDrive/State", currentState.toString());
     SmartDashboard.putNumber("TargetCentricDrive/TagX", tagXfromCenter);
@@ -215,17 +235,17 @@ public class TargetCentricDrive extends Command {
 
   private double calculateRotFromOdometery() {
     if (target == null) {
-      //incase no target was set, unlikely.
+      // incase no target was set, unlikely.
       return 0.0;
     }
     double dy = target.getY() - currentPose.getY();
     double dx = target.getX() - currentPose.getX();
     targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
-    
+
     SmartDashboard.putNumber("TargetCentricDrive/Odo_target", targetRot * DEGperRAD);
     // use pid to calculate rot_cmd[rad/s] using targetRot angle as setpoint
-    double rot_cmd = blindPid.calculate(currentPose.getRotation().getDegrees(), targetRot);  //[deg/s]
-    return rot_cmd/DEGperRAD; // [rad/s]
+    double rot_cmd = blindPid.calculate(currentPose.getRotation().getDegrees(), targetRot); // [deg/s]
+    return rot_cmd / DEGperRAD; // [rad/s]
   }
 
   private double calculateRotFromTarget(double tagXfromCenter) {
@@ -248,11 +268,11 @@ public class TargetCentricDrive extends Command {
     ySpeed = MathUtil.clamp(ySpeed, -limits.kMaxSpeed, limits.kMaxSpeed);
 
     // convert field centric speeds to robot centric
-    // if on red alliance you're looking at robot from opposite. 
+    // if on red alliance you're looking at robot from opposite.
     // Pose is in blue coordinates so flip if red
     ChassisSpeeds tempChassisSpeed = (DriverStation.getAlliance().get().equals(Alliance.Blue))
-        ? ChassisSpeeds.fromFieldRelativeSpeeds( xSpeed,  ySpeed, rot_cmd, currrentHeading)
-        : ChassisSpeeds.fromFieldRelativeSpeeds(-xSpeed, -ySpeed, rot_cmd, currrentHeading); 
+        ? ChassisSpeeds.fromFieldRelativeSpeeds(xSpeed, ySpeed, rot_cmd, currrentHeading)
+        : ChassisSpeeds.fromFieldRelativeSpeeds(-xSpeed, -ySpeed, rot_cmd, currrentHeading);
     this.output_states = kinematics.toSwerveModuleStates(tempChassisSpeed);
   }
 
