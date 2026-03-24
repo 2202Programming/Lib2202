@@ -27,6 +27,7 @@ public class ModuleConfig {
 
   // wheel offsets for CANCoder
   public final double kAngleOffset;
+  public double wheelFactor = 1.0;  //allow for a module specific wheel factor
 
   /**
    * CANModuleConfig - Stores one swerve module's cancoder and two motor CAN IDs
@@ -54,6 +55,16 @@ public class ModuleConfig {
     return this;
   }
 
-  
+  /**
+   * Allow for correction on a module basis. this modules wheelDiameter is multiplied by this factor.
+   * Used to modify the units conversion factor for position and velocity reads from the controller.
+   * 
+   * @param wheelFactor - factor to incrase or decrease nominal wheel diameter
+   * @return  ModuleConf for chaining 
+   */
+  public ModuleConfig withWheelFactor(double wheelFactor){
+    this.wheelFactor = wheelFactor;
+    return this;
+  }
 
 }
