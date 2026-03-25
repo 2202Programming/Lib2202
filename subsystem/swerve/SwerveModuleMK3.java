@@ -68,7 +68,8 @@ public class SwerveModuleMK3 {
   private final SparkClosedLoopController angleMotorPID; // sparkmax PID can only use internal NEO encoders
   private final RelativeEncoder angleEncoder; // aka internalAngle
   private final RelativeEncoder driveEncoder;
-  
+  private final double wheelFactor;    // factor used to account for wheelwear
+
   // CTRE devices
   private final CANcoder absEncoder; // aka externalAngle (external to Neo/Smartmax)
   private double angleCmdInvert;
@@ -119,31 +120,34 @@ public class SwerveModuleMK3 {
    * 
    * Batteries will need changing before then.
    * 
+   * wheelfactor - nominally 1.0, but can be set to account for wear.  .95 wheel 5% smaller.
+   * 
    */
   public String myprefix;
 
   // Signature for flex
   public SwerveModuleMK3(SparkFlex driveMtr, SparkFlex angleMtr, CANcoder absEnc,
-  boolean invertAngleMtr, boolean invertAngleCmd, boolean invertDrive, String prefix) {
-    this(SparkFlex.class, driveMtr,  angleMtr, absEnc, invertAngleMtr, invertAngleCmd, invertDrive, prefix );
+  boolean invertAngleMtr, boolean invertAngleCmd, boolean invertDrive, String prefix, double wheelFactor) {
+    this(SparkFlex.class, driveMtr,  angleMtr, absEnc, invertAngleMtr, invertAngleCmd, invertDrive, prefix, wheelFactor );
 
   }
   // Contructor for original SparkMax
   public SwerveModuleMK3(SparkMax driveMtr, SparkMax angleMtr, CANcoder absEnc,
-  boolean invertAngleMtr, boolean invertAngleCmd, boolean invertDrive, String prefix) {
-    this(SparkMax.class, driveMtr,  angleMtr, absEnc, invertAngleMtr, invertAngleCmd, invertDrive, prefix );
+  boolean invertAngleMtr, boolean invertAngleCmd, boolean invertDrive, String prefix, double wheelFactor) {
+    this(SparkMax.class, driveMtr,  angleMtr, absEnc, invertAngleMtr, invertAngleCmd, invertDrive, prefix, wheelFactor );
     }
   
   // generalized
   public SwerveModuleMK3(
     @SuppressWarnings("rawtypes") Class mType, 
       SparkBase driveMtr, SparkBase angleMtr, CANcoder absEnc,
-      boolean invertAngleMtr, boolean invertAngleCmd, boolean invertDrive, String prefix) {
+      boolean invertAngleMtr, boolean invertAngleCmd, boolean invertDrive, String prefix, double wheelfactor) {
     this.mType = mType;
     driveMotor = driveMtr;
     angleMotor = angleMtr;
     absEncoder = absEnc;
     myprefix = prefix;
+    this.wheelFactor = wheelfactor;
 
     IRobotSpec specs = RobotContainer.getRobotSpecs();
     RobotLimits limits = specs.getRobotLimits();
@@ -160,8 +164,8 @@ public class SwerveModuleMK3 {
             .idleMode(IdleMode.kBrake)
             .smartCurrentLimit(limits.driveStallAmp, limits.freeAmp)
             .encoder   // set driveEncoder to use units of the wheelDiameter, meters
-              .positionConversionFactor(Math.PI * cc.wheelDiameter / cc.kDriveGR) // mo-rot to wheel units
-              .velocityConversionFactor((Math.PI * cc.wheelDiameter / cc.kDriveGR) / 60.0); // mo-rpm wheel units
+              .positionConversionFactor(wheelFactor * Math.PI * cc.wheelDiameter / cc.kDriveGR) // mo-rot to wheel units [m/rot]
+              .velocityConversionFactor((wheelFactor * Math.PI * cc.wheelDiameter / cc.kDriveGR) / 60.0); // mo-rpm wheel units [m/rps]
     
     driveCfg.closedLoop.feedbackSensor(FeedbackSensor.kPrimaryEncoder);
 
@@ -352,7 +356,7 @@ public class SwerveModuleMK3 {
 
   /**
    * 
-   * @return velocity wheel's units [m]
+   * @return velocity wheel's units [m/s]
    */
   public double getVelocity() {
     return m_velocity;
@@ -360,7 +364,7 @@ public class SwerveModuleMK3 {
 
   /**
    * 
-   * @return velocity wheel's units [m]
+   * @return Position wheel's units [m]
    */
   public double getPosition() {
     return m_position;

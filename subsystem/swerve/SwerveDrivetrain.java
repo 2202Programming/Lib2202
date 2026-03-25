@@ -119,10 +119,12 @@ public class SwerveDrivetrain extends DriveTrainInterface {
                                          new SparkFlex(mc[i].ANGLE_MOTOR_ID, MotorType.kBrushless),
 
           canCoders[i],
+          //todo - change to take the mc object (off season)
           mc[i].kAngleMotorInvert,
           mc[i].kAngleCmdInvert,
           mc[i].kDriveMotorInvert,
-          mc[i].id.toString());
+          mc[i].id.toString(),
+          mc[i].wheelFactor);
 
       /* Speed up signals to an appropriate rate */
       // long term wip BaseStatusSignal.setUpdateFrequencyForAll(100,
