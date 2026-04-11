@@ -254,7 +254,7 @@ public class TargetCentricDrive extends Command {
     double dx = target.getX() - currentPose.getX();
     targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
 
-    SmartDashboard.putNumber("TargetCentricDrive/Odo_target", targetRot * DEGperRAD);
+    SmartDashboard.putNumber("TargetCentricDrive/Odo_target", targetRot); //in DEG
     // use pid to calculate rot_cmd[rad/s] using targetRot angle as setpoint
     double rot_cmd = blindPid.calculate(currentPose.getRotation().getDegrees(), targetRot); // [deg/s]
     return rot_cmd / DEGperRAD; // [rad/s]
@@ -269,7 +269,7 @@ public class TargetCentricDrive extends Command {
     double dx = targeter.getMotionCorrectedTarget().getX() - currentPose.getX();
     targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
 
-    SmartDashboard.putNumber("TargetCentricDrive/targeter_target", targetRot * DEGperRAD);
+    SmartDashboard.putNumber("TargetCentricDrive/targeter_target", targetRot); //in DEG
     // use pid to calculate rot_cmd[rad/s] using targetRot angle as setpoint
     double rot_cmd = targeterPid.calculate(currentPose.getRotation().getDegrees(), targetRot); // [deg/s]
     return rot_cmd / DEGperRAD; // [rad/s]
