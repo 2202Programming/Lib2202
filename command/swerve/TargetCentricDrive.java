@@ -12,6 +12,7 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -86,9 +87,9 @@ public class TargetCentricDrive extends Command {
 
   // Targeter PID
   PIDController targeterPid;
-  double targeter_kP = 2.0; 
+  double targeter_kP = 6.0;
   double targeter_kI = 0;
-  double targeter_kD = 0;
+  double targeter_kD = 0.5;
 
   double vel_tol = 2.0; // [deg/s]
   double pos_tol_blind = 2.0; // [deg/s]
@@ -126,12 +127,14 @@ public class TargetCentricDrive extends Command {
   private TargetCentricDrive(Translation2d redTarget, Translation2d blueTarget,
       AprilTag redTag, AprilTag blueTag, String limelightName, TargeterInterface targeter) {
     // deal with tag or given Translations, get tranlation2d from tags if given
-    this.redTarget = redTarget;
-    this.blueTarget = blueTarget;
-    this.redTag = redTag;
-    this.blueTag = blueTag;
+
     this.targeter = targeter;
+
     if (targeter == null) {
+      this.redTarget = redTarget;
+      this.blueTarget = blueTarget;
+      this.redTag = redTag;
+      this.blueTag = blueTag;
       this.redTarget = (redTarget != null) ? redTarget : new Translation2d(redTag.pose.getX(), redTag.pose.getY());
       this.blueTarget = (blueTarget != null) ? blueTarget : new Translation2d(blueTag.pose.getX(), blueTag.pose.getY());
     }
@@ -180,12 +183,30 @@ public class TargetCentricDrive extends Command {
     return this;
   }
 
+    // allow pid parameters to change
+  public TargetCentricDrive setTargeterP(double kp) {
+    this.targeterPid.setP(kp);
+    return this;
+  }
+
+  public TargetCentricDrive setTargeterI(double ki) {
+    this.targeterPid.setI(ki);
+    return this;
+  }
+
+  public TargetCentricDrive setTargeterD(double kd) {
+    this.targeterPid.setD(kd);
+    return this;
+  }
+
   @Override
   public void initialize() {
-    target = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTarget : redTarget;
-    targetTag = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTag : redTag;
-    if (targeter != null)
+    if (targeter != null) {
       target = targeter.getMotionCorrectedTarget();
+    } else {
+      target = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTarget : redTarget;
+      targetTag = (DriverStation.getAlliance().get() == Alliance.Blue) ? blueTag : redTag;
+    }
     currentState = state.Init;
     SmartDashboard.putString("TargetCentricDrive/State", currentState.toString());
   }
@@ -254,7 +275,7 @@ public class TargetCentricDrive extends Command {
     double dx = target.getX() - currentPose.getX();
     targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
 
-    SmartDashboard.putNumber("TargetCentricDrive/Odo_target", targetRot); //in DEG
+    SmartDashboard.putNumber("TargetCentricDrive/Odo_target", targetRot); // in DEG
     // use pid to calculate rot_cmd[rad/s] using targetRot angle as setpoint
     double rot_cmd = blindPid.calculate(currentPose.getRotation().getDegrees(), targetRot); // [deg/s]
     return rot_cmd / DEGperRAD; // [rad/s]
@@ -269,7 +290,7 @@ public class TargetCentricDrive extends Command {
     double dx = targeter.getMotionCorrectedTarget().getX() - currentPose.getX();
     targetRot = Math.atan2(dy, dx) * DEGperRAD; // [deg] heading to TARGET
 
-    SmartDashboard.putNumber("TargetCentricDrive/targeter_target", targetRot); //in DEG
+    SmartDashboard.putNumber("TargetCentricDrive/targeter_target", targetRot); // in DEG
     // use pid to calculate rot_cmd[rad/s] using targetRot angle as setpoint
     double rot_cmd = targeterPid.calculate(currentPose.getRotation().getDegrees(), targetRot); // [deg/s]
     return rot_cmd / DEGperRAD; // [rad/s]
@@ -318,5 +339,12 @@ public class TargetCentricDrive extends Command {
     }
     return tagXfromCenter;
   }
+
+    @Override
+    public void initSendable(SendableBuilder builder) {
+        builder.addDoubleProperty("targeterKp", this.targeterPid::getP, this::setTargeterP);
+        builder.addDoubleProperty("targeterKi", this.targeterPid::getI, this::setTargeterI);
+        builder.addDoubleProperty("targeterKd", this.targeterPid::getD, this::setTargeterD);
+    }
 
 }
