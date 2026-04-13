@@ -8,8 +8,6 @@
 package frc.lib2202.subsystem.hid;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.networktables.NetworkTable;
-import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -396,35 +394,14 @@ static <T extends CommandGenericHID> T create_hid_device(Id port){
   }
 
 
-  public class HIDMonitorCmd extends WatcherCmd {
-    NetworkTableEntry nt_X_cmd;
-    NetworkTableEntry nt_Y_cmd;
-    NetworkTableEntry nt_Rot_cmd;
-    NetworkTableEntry nt_scale;
+  public class HIDMonitorCmd extends WatcherCmd {  
     
-    public HIDMonitorCmd() {}
-
-    @Override
-    public String getTableName() {
-      return "HID";
-    }
-
-    @Override
-    public void ntcreate() {
-      NetworkTable MonitorTable = getTable();
-      
-      nt_X_cmd = MonitorTable.getEntry("driver_shaped/VX_cmd");
-      nt_Y_cmd = MonitorTable.getEntry("driver_shaped/VY_cmd");
-      nt_Rot_cmd = MonitorTable.getEntry("driver_shaped/VRot_cmd");
-      nt_scale = MonitorTable.getEntry("driver_shaped/scale");
-    }
-
-    @Override
-    public void ntupdate() {
-      nt_X_cmd.setDouble(Math.round(velX*100.0)/100.0);
-      nt_Y_cmd.setDouble(Math.round(velY*100.0)/100.0) ;
-      nt_Rot_cmd.setDouble(Math.round(xyRot*100.0)/100.0) ;
-      nt_scale.setDouble(scale_xy);
+    public HIDMonitorCmd() {
+      addEntry("VX_cmd", () -> { return velX; }, 2);
+      addEntry("VY_cmd", () -> { return velY; }, 2);
+      addEntry("VRot_cmd", () -> { return xyRot; }, 2);
+      addEntry("scale_xy", () -> { return scale_xy; }, 2);
+      addEntry("scale_rot", () -> { return scale_rot; }, 2);
     }
     
   }
