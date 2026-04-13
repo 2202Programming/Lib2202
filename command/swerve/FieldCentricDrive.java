@@ -1,9 +1,6 @@
 package frc.lib2202.command.swerve;
 
-import static frc.lib2202.Constants.DEGperRAD;
-
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -34,11 +31,6 @@ public class FieldCentricDrive extends Command {
   double xSpeed, ySpeed, rot;
   Rotation2d currrentHeading;
   SwerveModuleState[] output_states;
-
-  // Slew rate limiters to make joystick inputs more gentle; 1/3 sec from 0 to 1.
-  final SlewRateLimiter xspeedLimiter = new SlewRateLimiter(3); // [m/s2]
-  final SlewRateLimiter yspeedLimiter = new SlewRateLimiter(3); // [m/s2]
-  final SlewRateLimiter rotLimiter = new SlewRateLimiter(90.0/DEGperRAD); // [rad/s2]
   
   public FieldCentricDrive() {
     this.dc = RobotContainer.getSubsystem("DC");       //driverControls
@@ -58,9 +50,9 @@ public class FieldCentricDrive extends Command {
   void calculate() {
     // Get the x speed. We are inverting this because Xbox controllers return
     // negative values when we push forward.
-    xSpeed = xspeedLimiter.calculate(dc.getVelocityX()) * limits.kMaxSpeed;
-    ySpeed = yspeedLimiter.calculate(dc.getVelocityY()) * limits.kMaxSpeed;
-    rot = rotLimiter.calculate(dc.getXYRotation()) * limits.kMaxAngularSpeed;
+    xSpeed = dc.getVelocityX() * limits.kMaxSpeed;
+    ySpeed = dc.getVelocityY() * limits.kMaxSpeed;
+    rot = dc.getXYRotation() * limits.kMaxAngularSpeed;
 
     // Clamp speeds/rot from the Joysticks
     xSpeed = MathUtil.clamp(xSpeed, -limits.kMaxSpeed, limits.kMaxSpeed);

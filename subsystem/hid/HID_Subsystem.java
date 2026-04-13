@@ -8,6 +8,7 @@
 package frc.lib2202.subsystem.hid;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -120,12 +121,20 @@ public class HID_Subsystem extends SubsystemBase {
   double scale_rot = 1.0;
 
   //XYRot / Swerve (field or robot relative)
-  ExpoShaper velXShaper;    // left/right
-  ExpoShaper velYShaper;    // forward/backward
-  ExpoShaper swRotShaper;   // rotation for XYRot
-
+  final ExpoShaper velXShaper;    // left/right
+  final ExpoShaper velYShaper;    // forward/backward
+  final ExpoShaper swRotShaper;   // rotation for XYRot
+  
   //Expose expo control so driver can persistently tweek their settings
   final Trim xExpoTrim, yExpoTrim, rotExpoTrim, dzTrim;
+  final Trim xSlewTrim, ySlewTrim, rotSlewTrim;
+
+  //Handle Slewrate limits here too
+  // Slew rate limiters to make joystick inputs more gentle
+  // SRL in wpilib don't allow for changing rates ie tuning... new objects are needed
+  SlewRateLimiter xspeedLimiter; // = new SlewRateLimiter(3); // [m/s2]
+  SlewRateLimiter yspeedLimiter; // = new SlewRateLimiter(3); // [m/s2]
+  SlewRateLimiter rotLimiter;    // = new SlewRateLimiter(90.0/DEGperRAD); // [rad/s2]
 
   //values updated each frame
   double vel, z_rot;           //arcade
@@ -143,11 +152,30 @@ public class HID_Subsystem extends SubsystemBase {
     yExpoTrim = new Trim("HID_Driver", "ExpoY", velExpo);
     rotExpoTrim = new Trim("HID_Driver", "ExpoRot", rotExpo);
     dzTrim = new Trim("HID_Driver","DeadZone", deadzone);
+
     //add trim callbacks, use local function so we can clamp and reset trim value
     xExpoTrim.addChangeCallback(this::updateExpo);
     yExpoTrim.addChangeCallback(this::updateExpo);
     rotExpoTrim.addChangeCallback(this::updateExpo);
     dzTrim.addChangeCallback(this::updateDeadzone);
+
+    // allow slew rates to be tunable too
+    xSlewTrim = new Trim("HID_Driver","SlewX", 0.5);
+    ySlewTrim = new Trim("HID_Driver","SlewY", 0.5);
+    rotSlewTrim = new Trim("HID_Driver","SlewRot", 0.5);
+
+    // moved slew rate here, was copied in multiple swerve drive mode commands
+    xspeedLimiter = new SlewRateLimiter(xSlewTrim.getValue()); // [m/s2]
+    yspeedLimiter = new SlewRateLimiter(ySlewTrim.getValue()); // [m/s2]
+    rotLimiter = new SlewRateLimiter(rotSlewTrim.getValue());  // [rad/s2]
+
+    // not sure I like creating new objs in callback /wo thread sync...
+    xSlewTrim.addChangeCallback( () -> { 
+      xspeedLimiter = new SlewRateLimiter(xSlewTrim.getValue()); return true; });
+    ySlewTrim.addChangeCallback( () -> { 
+      yspeedLimiter = new SlewRateLimiter(ySlewTrim.getValue()); return true; });
+    rotSlewTrim.addChangeCallback( () -> { 
+      rotLimiter = new SlewRateLimiter(rotSlewTrim.getValue()); return true; });
 
     // register the devices
     driver = create_hid_device(Id.Driver);
@@ -237,9 +265,9 @@ public class HID_Subsystem extends SubsystemBase {
 
     //XYRot - field axis, pos X away from driver station, pos y to left side of field
     //Added scale-factors for low-speed creeper mode
-    velX = -(velXShaper.get() * scale_xy);     //invert, so right stick moves robot, right, lowering Y
-    velY = -(velYShaper.get() * scale_xy);     //invert, so forward stick is positive, increase X
-    xyRot = -(swRotShaper.get() * scale_rot);  //invert, so positive is CCW
+    velX = -xspeedLimiter.calculate(velXShaper.get() * scale_xy);     //invert, so right stick moves robot, right, lowering Y
+    velY = -yspeedLimiter.calculate(velYShaper.get() * scale_xy);     //invert, so forward stick is positive, increase X
+    xyRot = -rotLimiter.calculate(swRotShaper.get() * scale_rot);  //invert, so positive is CCW
   }
 
   public void startWatcher() {
