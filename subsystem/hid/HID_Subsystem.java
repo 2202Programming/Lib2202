@@ -17,6 +17,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandGenericHID;
 import edu.wpi.first.wpilibj2.command.button.CommandPS4Controller;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.lib2202.command.WatcherCmd;
+import frc.lib2202.subsystem.UX.TrimTables.Trim;
 import frc.lib2202.subsystem.hid.SwitchboardController.SBButton;
 
 import java.util.function.DoubleSupplier;
@@ -125,18 +126,31 @@ public class HID_Subsystem extends SubsystemBase {
   ExpoShaper velYShaper;    // forward/backward
   ExpoShaper swRotShaper;   // rotation for XYRot
 
+  //Expose expo control so driver can persistently tweek their settings
+  final Trim xExpoTrim, yExpoTrim, rotExpoTrim, dzTrim;
 
   //values updated each frame
   double vel, z_rot;           //arcade
   double velLeft, velRight;    //tank
   double velX,velY, xyRot;     //XTRot
-  final double deadzone;
+  double deadzone;
 
   // invertGain is used to change the controls for driving backwards easily.
   // A negative value indicates you're driving backwards with forwards controls.
   double invertGain = 1.0;
 
   public HID_Subsystem(final double velExpo, final double rotExpo, final double deadzone) {
+    //setup persistent trims, use args for defaults.
+    xExpoTrim = new Trim("HID_Driver", "ExpoX", velExpo);
+    yExpoTrim = new Trim("HID_Driver", "ExpoY", velExpo);
+    rotExpoTrim = new Trim("HID_Driver", "ExpoRot", rotExpo);
+    dzTrim = new Trim("HID_Driver","DeadZone", deadzone);
+    //add trim callbacks, use local function so we can clamp and reset trim value
+    xExpoTrim.addChangeCallback(this::updateExpo);
+    yExpoTrim.addChangeCallback(this::updateExpo);
+    rotExpoTrim.addChangeCallback(this::updateExpo);
+    dzTrim.addChangeCallback(this::updateDeadzone);
+
     // register the devices
     driver = create_hid_device(Id.Driver);
     operator = create_hid_device(Id.Operator);
@@ -146,21 +160,19 @@ public class HID_Subsystem extends SubsystemBase {
     _driver = new AnalogSuppliers(driver);
     _operator = new AnalogSuppliers(operator);
     
-    this.deadzone = deadzone;
     /**
      * All Joysticks are read and shaped without sign conventions.
      * Sign convention added on periodic based on the type of driver control
      * being used.
      */
-    // configure driver expo shapers, use raw accessors
-    velXShaper = new ExpoShaper(velExpo, _driver.getX);
-    velYShaper = new ExpoShaper(velExpo, _driver.getY); 
-    swRotShaper = new ExpoShaper(rotExpo, _driver.getRot);
+    // configure driver expo shapers, use raw accessors, get expo value from TrimTable
+    velXShaper = new ExpoShaper(xExpoTrim.getValue(), _driver.getX);
+    velYShaper = new ExpoShaper(yExpoTrim.getValue(), _driver.getY); 
+    swRotShaper = new ExpoShaper(rotExpoTrim.getValue(), _driver.getRot);
 
-    // deadzone for driver
-    velXShaper.setDeadzone(deadzone);
-    velYShaper.setDeadzone(deadzone);
-    swRotShaper.setDeadzone(deadzone);
+    //use persistent values and not what was passed in.
+    updateExpo();
+    updateDeadzone();
 
     // read some values to remove unused warning 
     // CHANGED for 2022
@@ -171,6 +183,35 @@ public class HID_Subsystem extends SubsystemBase {
     initDriverButtons = getButtonsRaw(Id.Driver);
     initAssistentButtons = getButtonsRaw(Id.Operator);
     initSwitchBoardButtons = getButtonsRaw(Id.SwitchBoard);
+  }
+
+  // Callbacks for setting new values over network Trim tables
+  // returns ignored, just used for callback change on trim.
+  boolean updateExpo(){
+    //update all the expo, on any change no real need for 3 distinct functions.
+    checkedUpdate(xExpoTrim, velXShaper);
+    checkedUpdate(yExpoTrim, velYShaper);
+    checkedUpdate(rotExpoTrim, swRotShaper);    
+    return true;
+  }
+
+  void checkedUpdate(Trim t, ExpoShaper es){
+    //expo coef must be 0 - 1.0 range
+    double clampval = MathUtil.clamp(t.getValue(),0.0, 1.0);
+    es.setExpo(clampval);
+    if (clampval != t.getValue()) {
+      // put the clamped value back into the network table entry
+      t.setTrim(clampval);
+    }
+  }
+
+  boolean updateDeadzone() { 
+    // deadzone for driver    
+    this.deadzone = dzTrim.getValue();   
+    velXShaper.setDeadzone(deadzone);
+    velYShaper.setDeadzone(deadzone);
+    swRotShaper.setDeadzone(deadzone);
+    return true;
   }
 
   /**

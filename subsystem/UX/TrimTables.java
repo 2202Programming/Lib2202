@@ -89,6 +89,7 @@ public class TrimTables extends SubsystemBase {
         final Table m_table; // which table the trim is on
         final DoubleSubscriber m_trimSubscriber; // network table hook
         final ArrayList<Supplier<Boolean>> m_callbacks; // functions to call on change
+        final String m_trimName;
         double m_value;
 
         // default table - keep older api
@@ -131,8 +132,9 @@ public class TrimTables extends SubsystemBase {
             this.m_callbacks = new ArrayList<Supplier<Boolean>>();
             this.m_table = Table.get(trimTableName); // constructs table as needed, static fuction
             this.m_table.m_trims.add(this);
+            this.m_trimName = trimName;
             // create the topic, and subscribe
-            DoubleTopic d_topic = m_table.m_networkTable.getDoubleTopic(trimName);
+            DoubleTopic d_topic = m_table.m_networkTable.getDoubleTopic(m_trimName);
             m_trimSubscriber = d_topic.subscribe(default_trim);
             // get the persisted value, if there is one
             m_value = m_trimSubscriber.get();
@@ -149,9 +151,16 @@ public class TrimTables extends SubsystemBase {
             return m_value;
         }
 
+        //adds trim to given value
         public double getValue(double value) {
             m_value = m_trimSubscriber.get();
             return value + m_value;
+        }
+
+        public Trim setTrim(double value) {
+            DoubleTopic d_topic = m_table.m_networkTable.getDoubleTopic(m_trimName);
+            d_topic.publish().set(value);
+            return this;
         }
 
         /**
