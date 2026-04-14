@@ -5,7 +5,7 @@ import static frc.lib2202.Constants.DEGperRAD;
 import edu.wpi.first.apriltag.AprilTag;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.filter.SlewRateLimiter;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -102,11 +102,6 @@ public class TargetCentricDrive extends Command {
   Rotation2d currrentHeading;
   SwerveModuleState[] output_states;
   boolean hasTarget = false;
-
-  // Slew rate limiters to make joystick inputs more gentle; 1/3 sec from 0 to 1.
-  final SlewRateLimiter xspeedLimiter = new SlewRateLimiter(3);
-  final SlewRateLimiter yspeedLimiter = new SlewRateLimiter(3);
-  final SlewRateLimiter rotLimiter = new SlewRateLimiter(3);
 
   // TagID based tracking
   public TargetCentricDrive(AprilTag redTag, AprilTag blueTag) {
@@ -308,8 +303,8 @@ public class TargetCentricDrive extends Command {
     // X and Y from joysticks; rot from previous calculations
     // Get the x speed. We are inverting this because Xbox controllers return
     // negative values when we push forward.
-    xSpeed = xspeedLimiter.calculate(dc.getVelocityX()) * limits.kMaxSpeed;
-    ySpeed = yspeedLimiter.calculate(dc.getVelocityY()) * limits.kMaxSpeed;
+    xSpeed = dc.getVelocityX() * limits.kMaxSpeed;
+    ySpeed = dc.getVelocityY() * limits.kMaxSpeed;
 
     // Clamp speeds from the Joysticks
     xSpeed = MathUtil.clamp(xSpeed, -limits.kMaxSpeed, limits.kMaxSpeed);
