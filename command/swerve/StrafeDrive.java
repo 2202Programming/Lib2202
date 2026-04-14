@@ -67,8 +67,8 @@ public class StrafeDrive extends FieldCentricDrive {
     //We override the super's calculate(), so we can replace the rotation
     // Get the x speed. We are inverting this because Xbox controllers return
     // negative values when we push forward.
-    xSpeed = xspeedLimiter.calculate(dc.getVelocityX()) * limits.kMaxSpeed;
-    ySpeed = yspeedLimiter.calculate(dc.getVelocityY()) * limits.kMaxSpeed;
+    xSpeed = dc.getVelocityX() * limits.kMaxSpeed;
+    ySpeed = dc.getVelocityY() * limits.kMaxSpeed;
     double rot_cmd = calculate_rotation(ySpeed);
 
     // Clamp speeds/rot from the Joysticks
