@@ -169,9 +169,14 @@ public class SwerveModuleMK3 {
     
     driveCfg.closedLoop.feedbackSensor(FeedbackSensor.kPrimaryEncoder);
 
-    // finish pid and config 
+    // finish pid and config
     cc.drivePIDF.copyTo(driveMtr, driveCfg, kSlot); // velocity mode
-    driveMotor.configure(driveCfg, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    REVLibError driveConfigError = driveMotor.configure(driveCfg, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    if (driveConfigError != REVLibError.kOk) {
+      System.out.println("**** ERROR **** SwerveModuleMK3[" + prefix + "] drive motor (CAN id="
+          + driveMtr.getDeviceId() + ") configure() failed, idle mode may not be set to Brake. Error val="
+          + driveConfigError);
+    }
     driveMotorPID = driveMotor.getClosedLoopController();
     driveEncoder = driveMotor.getEncoder();   
     setDrivePosition(0.0);
