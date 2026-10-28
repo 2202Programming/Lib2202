@@ -11,6 +11,7 @@ import com.ctre.phoenix6.StatusSignal;
 //wip import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.hardware.CANcoder;
+import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.SensorDirectionValue;
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
@@ -65,9 +66,9 @@ public class SwerveDrivetrain extends DriveTrainInterface {
   SwerveModulePosition[] meas_pos; // distance & angle for each module
   ChassisSpeeds speedsRC;
  
-  // sensors and our mk3 modules
+  // sensors and our swerve modules
   final IHeadingProvider sensors;
-  final SwerveModuleMK3[] modules;
+  final ISwerveModule[] modules;
   final CANcoder canCoders[];
 
   public SwerveDrivetrain() {
@@ -79,6 +80,10 @@ public class SwerveDrivetrain extends DriveTrainInterface {
       this(mtrClass, "rio");
   }
 
+  /**
+   * @param mtrClass   SparkMax.class, SparkFlex.class or TalonFX.class (Kraken/Falcon)
+   * @param canBusName "rio" (default), "can0", CANivore name, ..
+   */
   @SuppressWarnings("rawtypes")
   public SwerveDrivetrain(Class mtrClass, String canBusName) {
     this.canBusName = canBusName;
@@ -104,11 +109,16 @@ public class SwerveDrivetrain extends DriveTrainInterface {
 
     sensors = RobotContainer.getRobotSpecs().getHeadingProvider();
     canCoders = new CANcoder[mc.length];
-    modules = new SwerveModuleMK3[mc.length];
+    modules = new ISwerveModule[mc.length];
 
     // create cancoders and swerve modules
     for (int i = 0; i < mc.length; i++) {
       canCoders[i] = initCANcoder(mc[i].CANCODER_ID, mc[i].kAngleOffset);
+
+      if (mtrClass == TalonFX.class) {
+        modules[i] = newTalonFXModule(mc[i], canCoders[i]);
+        continue;
+      }
 
       modules[i] = new SwerveModuleMK3(
           mtrClass,
@@ -136,6 +146,19 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     offsetDebug();
     getWatcher();
     simulationInit();
+  }
+
+  // TalonFX module, angle direction comes from the CANcoder so kAngleCmdInvert is not used
+  private ISwerveModule newTalonFXModule(ModuleConfig mc, CANcoder canCoder) {
+    CANBus bus = new CANBus(canBusName);
+    return new SwerveModuleTalonFX(
+        new TalonFX(mc.DRIVE_MOTOR_ID, bus),
+        new TalonFX(mc.ANGLE_MOTOR_ID, bus),
+        canCoder,
+        mc.kAngleMotorInvert,
+        mc.kDriveMotorInvert,
+        mc.id.toString(),
+        mc.wheelFactor);
   }
 
   /**
@@ -188,8 +211,8 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     System.out.println("================OffsetDebug==================");
     for (int i = 0; i < mc.length; i++) {
       double offset = mc[i].kAngleOffset;
-      double measured = modules[i].m_internalAngle;
-      double cc_measured = modules[i].m_externalAngle;
+      double measured = modules[i].getAngle();
+      double cc_measured = modules[i].getAngleExternal();
       System.out.println(mc[i].id.toString() + ": offset=" + offset + ", internal=" + measured +
           " cc_meas=" + cc_measured + ", if zero-aligned, set mag offset = " +
           ModMath.fmod360_2(offset - cc_measured));
@@ -269,7 +292,7 @@ public class SwerveDrivetrain extends DriveTrainInterface {
     }
   }
 
-  public SwerveModuleMK3 getMK3(int modID) {
+  public ISwerveModule getModule(int modID) {
     if ((modID < 0) || (modID > modules.length - 1))
       return null;
     return modules[modID];

@@ -48,7 +48,7 @@ import frc.lib2202.subsystem.swerve.config.ChassisConfig;
 import frc.lib2202.util.ModMath;
 import frc.lib2202.util.PIDFController;
 
-public class SwerveModuleMK3 {
+public class SwerveModuleMK3 implements ISwerveModule {
   public final String NT_Name = "DriveModules";
   @SuppressWarnings("rawtypes")
   final Class mType;   // either SparkMax or SparkFlex
